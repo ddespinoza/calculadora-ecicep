@@ -1,0 +1,34 @@
+# Engine gate. There is no build step in this repository and no package.json — motor.mjs and
+# ecicep-codigos.mjs are copied straight into the Site's theme, pinned by hash — so nothing
+# stands between an edit here and the answer a clinician reads there.
+#
+# Everything is offline and dependency-free: the node test suite, the check that the generated
+# ecicep-codigos.mjs still matches the CSV, and a syntax check over the Python generators. No
+# network, no database, no browser.
+#
+# Node is pinned below rather than left to chance, and python3 ships with the runner. If either
+# ever goes missing the gate FAILS instead of skipping that tier: a check that quietly does
+# nothing in CI is worth less than no check, because green then means something it did not
+# measure.
+name: motor
+
+on:
+  pull_request:
+    paths: ["**.mjs", "datos/**", "tests/**", "scripts/**", ".github/workflows/motor.yml"]
+  push:
+    branches: [main]
+    paths: ["**.mjs", "datos/**", "tests/**", "scripts/**", ".github/workflows/motor.yml"]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check engine
+        run: ./scripts/check.sh
