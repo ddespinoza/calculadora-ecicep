@@ -6,8 +6,16 @@
 Reporta cobertura vs codigos del TSV/dataset."""
 import re, csv, collections, json
 
-BASE = "/REDACTED/ECICEP/"
-lines = open(BASE + "paho_vol1.txt", encoding="utf-8").read().split("\n")
+import os, pathlib
+# Input and output locations. Both used to be one hardcoded absolute path into the
+# author's cloud-sync folder, which meant this script could not be run by anyone,
+# anywhere. IN_DIR is this directory; OUT_DIR defaults to the repository's datos/
+# and honours ECICEP_OUT.
+_AQUI = pathlib.Path(__file__).resolve()
+IN_DIR = _AQUI.parent
+OUT_DIR = pathlib.Path(os.environ.get("ECICEP_OUT", _AQUI.parents[2] / "datos"))
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+lines = open(IN_DIR / "paho_vol1.txt", encoding="utf-8").read().split("\n")
 
 # inicio de la 'Lista tabular' (fin del indice de 3 caracteres)
 TAB = next(i for i, l in enumerate(lines) if i > 4000 and "Lista tabular de inclusiones" in l)
@@ -79,12 +87,12 @@ for code, ctr in tab.items():
 for code, t in maestros.items():
     titles[code] = t
 
-json.dump(titles, open(BASE + "paho_titles.json", "w", encoding="utf-8"),
+json.dump(titles, open(IN_DIR / "paho_titles.json", "w", encoding="utf-8"),
           ensure_ascii=False, indent=0)
 print("Titulos:", len(titles), "| maestros indice:", len(maestros))
 
 # ---- cobertura ----
-rows = list(csv.reader(open(BASE + "codigos_ecicep_estratificacion.tsv", encoding="utf-8"), delimiter="\t"))[1:]
+rows = list(csv.reader(open(OUT_DIR / "codigos_ecicep_estratificacion.tsv", encoding="utf-8"), delimiter="\t"))[1:]
 codes = list(dict.fromkeys(r[6] for r in rows if r[8] != "Regla"))  # col Codigo CIE-10
 miss = [c for c in codes if c not in titles]
 print(f"Codigos unicos: {len(codes)} | con titulo: {len(codes)-len(miss)} | SIN: {len(miss)}")

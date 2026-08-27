@@ -5,6 +5,16 @@ Fuente: Marco Operativo ECICEP 2025, Anexo 4, pags 94-101 (52 condiciones).
 Salida: TSV listo para pegar en A1 de Google Sheets + resumen de verificacion.
 """
 import csv
+import os, pathlib
+# Output location. Defaults to this repository's datos/ directory; override with
+# ECICEP_OUT to write somewhere else. It used to be one hardcoded absolute path
+# into the author's cloud-sync folder, which meant this script could not be run
+# by anyone, anywhere, including on the server that ships its output.
+_AQUI = pathlib.Path(__file__).resolve()
+IN_DIR = _AQUI.parent
+OUT_DIR = pathlib.Path(os.environ.get("ECICEP_OUT", _AQUI.parents[2] / "datos"))
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+
 
 # (n, nombre, puntaje, [tokens en orden del PDF])
 # tokens: "F10:" = categoria maestra | "F10.0" = subcodigo | "G35" = codigo unico
@@ -230,7 +240,7 @@ for n, nombre, pje, toks in COND:
             cuenta += 1
     stats.append((n, nombre[:40], pje, cuenta))
 
-out = "/REDACTED/ECICEP/codigos_ecicep_estratificacion.tsv"
+out = str(OUT_DIR / "codigos_ecicep_estratificacion.tsv")
 with open(out, "w", newline="", encoding="utf-8") as f:
     w = csv.writer(f, delimiter="\t")
     w.writerows(rows)

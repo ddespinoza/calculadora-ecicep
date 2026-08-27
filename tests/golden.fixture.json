@@ -1,0 +1,212 @@
+{
+  "_procedencia": {
+    "planilla": "Calculadora ECICEP (1ojzzhdRPEkgRBoQicH-hGZnCI-Pe5p2Ysz1CnyHrW9s), modificada 2026-08-21",
+    "nota": "Los casos marcados fuente=planilla estan copiados de la pestana Tutorial de la planilla, que registra sus propias salidas. Los marcados fuente=tabla se derivan de la tabla de busqueda de la planilla (datos/codigos_ecicep_estratificacion.csv), no de una corrida observada.",
+    "estratificacion": "G0=0 · G1=1 · G2=2 a 4 · G3=5 o mas (puntaje ponderado)",
+    "tildes": "Los nombres se muestran con tildes; el CSV los guarda normalizados sin acentos. Es capa de presentacion: scripts/build-codigos.mjs valida que quitarles las tildes devuelva el nombre exacto del CSV. Codigos y puntajes salen intactos."
+  },
+  "resolucion": [
+    {
+      "entrada": "E11",
+      "condicion": 14,
+      "patologia": "Diabetes mellitus",
+      "puntaje": 2,
+      "fuente": "planilla"
+    },
+    {
+      "entrada": "C50",
+      "condicion": 38,
+      "patologia": "Malignidad / Neoplasia / Tumor maligno / Cáncer No esp.",
+      "puntaje": 1,
+      "fuente": "planilla"
+    },
+    {
+      "entrada": "N18.4",
+      "condicion": 22,
+      "patologia": "Enfermedad renal crónica avanzada",
+      "puntaje": 2,
+      "fuente": "planilla"
+    },
+    {
+      "entrada": "I10",
+      "condicion": 32,
+      "patologia": "Hipertensión",
+      "puntaje": 1,
+      "fuente": "planilla"
+    },
+    {
+      "entrada": "renal",
+      "condicion": 21,
+      "patologia": "Enfermedad renal crónica",
+      "puntaje": 1,
+      "fuente": "planilla"
+    },
+    {
+      "entrada": "E11.9",
+      "condicion": 14,
+      "patologia": "Diabetes mellitus",
+      "puntaje": 2,
+      "fuente": "tabla"
+    },
+    {
+      "entrada": "F33",
+      "condicion": 12,
+      "patologia": "Depresión leve o moderada",
+      "puntaje": 1,
+      "fuente": "tabla"
+    },
+    {
+      "entrada": "F33.2",
+      "condicion": 13,
+      "patologia": "Depresión (Grave, Grave con ideación suicida, refractaria y con psicosis)",
+      "puntaje": 2,
+      "fuente": "tabla"
+    },
+    {
+      "entrada": "N18",
+      "condicion": 21,
+      "patologia": "Enfermedad renal crónica",
+      "puntaje": 1,
+      "fuente": "tabla",
+      "nota": "N18 desnudo aparece bajo la condicion 21 y la 22; se resuelve por primera coincidencia, igual que un VLOOKUP."
+    },
+    {
+      "entrada": "D48.9",
+      "condicion": 38,
+      "patologia": "Malignidad / Neoplasia / Tumor maligno / Cáncer No esp.",
+      "puntaje": 1,
+      "fuente": "tabla",
+      "nota": "cae en la regla de rango D00-D48"
+    },
+    {
+      "entrada": "obesidad",
+      "condicion": 41,
+      "patologia": "Obesidad",
+      "puntaje": 1,
+      "fuente": "tabla"
+    }
+  ],
+  "no_resuelve": [
+    {
+      "entrada": "XYZ99",
+      "motivo": "no esta en el listado ECICEP oficial"
+    },
+    {
+      "entrada": "J99",
+      "motivo": "no esta en el listado ECICEP oficial"
+    }
+  ],
+  "estratificacion": [
+    {
+      "entradas": [],
+      "distintas": 0,
+      "puntaje": 0,
+      "grupo": "G0"
+    },
+    {
+      "entradas": [
+        "I10"
+      ],
+      "distintas": 1,
+      "puntaje": 1,
+      "grupo": "G1"
+    },
+    {
+      "entradas": [
+        "E11"
+      ],
+      "distintas": 1,
+      "puntaje": 2,
+      "grupo": "G2",
+      "nota": "unica condicion, doble ponderacion: la planilla estratifica por puntaje, no por conteo"
+    },
+    {
+      "entradas": [
+        "I10",
+        "E78"
+      ],
+      "distintas": 2,
+      "puntaje": 2,
+      "grupo": "G2"
+    },
+    {
+      "entradas": [
+        "E11",
+        "I10"
+      ],
+      "distintas": 2,
+      "puntaje": 3,
+      "grupo": "G2"
+    },
+    {
+      "entradas": [
+        "E11",
+        "N18.4"
+      ],
+      "distintas": 2,
+      "puntaje": 4,
+      "grupo": "G2"
+    },
+    {
+      "entradas": [
+        "E11",
+        "N18.4",
+        "I10"
+      ],
+      "distintas": 3,
+      "puntaje": 5,
+      "grupo": "G3"
+    },
+    {
+      "entradas": [
+        "I10",
+        "E78",
+        "E66",
+        "J45",
+        "M10"
+      ],
+      "distintas": 5,
+      "puntaje": 5,
+      "grupo": "G3"
+    },
+    {
+      "entradas": [
+        "E11",
+        "E11"
+      ],
+      "distintas": 1,
+      "puntaje": 2,
+      "grupo": "G2",
+      "repetidas": [
+        "E11"
+      ],
+      "nota": "cada patologia cuenta una sola vez"
+    },
+    {
+      "entradas": [
+        "E11",
+        "E11.9"
+      ],
+      "distintas": 1,
+      "puntaje": 2,
+      "grupo": "G2",
+      "repetidas": [
+        "E11.9"
+      ],
+      "nota": "subcodigo y maestro son la misma patologia"
+    },
+    {
+      "entradas": [
+        "I10",
+        "XYZ99"
+      ],
+      "distintas": 1,
+      "puntaje": 1,
+      "grupo": "G1",
+      "sin_resolver": [
+        "XYZ99"
+      ],
+      "nota": "un codigo desconocido no aporta puntaje y se marca, nunca se ignora en silencio"
+    }
+  ]
+}

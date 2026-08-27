@@ -6,13 +6,21 @@ compartido extraidos del PDF + verificacion multi-agente (N18.x, I48.x, K52.3).
 """
 import csv, json, io, contextlib
 
-BASE = "/REDACTED/ECICEP/"
+import os, pathlib
+# Output location. Defaults to this repository's datos/ directory; override with
+# ECICEP_OUT to write somewhere else. It used to be one hardcoded absolute path
+# into the author's cloud-sync folder, which meant this script could not be run
+# by anyone, anywhere, including on the server that ships its output.
+_AQUI = pathlib.Path(__file__).resolve()
+IN_DIR = _AQUI.parent
+OUT_DIR = pathlib.Path(os.environ.get("ECICEP_OUT", _AQUI.parents[2] / "datos"))
+OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # importa datos del generador base (silencia su salida al importar)
 with contextlib.redirect_stdout(io.StringIO()):
     from gen_codigos_ecicep import COND, REGLA38, fila
 
-titles = json.load(open(BASE + "paho_titles.json", encoding="utf-8"))
+titles = json.load(open(IN_DIR / "paho_titles.json", encoding="utf-8"))
 
 # --- bloques de 4o caracter comun (extraidos de CIE-10 Vol.1 OPS) ---
 F1x = {".0": "Intoxicación aguda", ".1": "Uso nocivo", ".2": "Síndrome de dependencia",
@@ -104,11 +112,11 @@ for n, nombre, pje, toks in COND:
         rows.append([str(n), nombre, str(pje), maestro[0], maestro, nom_m,
                      cod, nom_c, tipo, nota])
 
-out_tsv = BASE + "codigos_ecicep_estratificacion.tsv"
+out_tsv = str(OUT_DIR / "codigos_ecicep_estratificacion.tsv")
 with open(out_tsv, "w", newline="", encoding="utf-8") as f:
     csv.writer(f, delimiter="\t").writerows(rows)
 # tambien CSV (respaldo / import alternativo)
-with open(BASE + "codigos_ecicep_estratificacion.csv", "w", newline="", encoding="utf-8") as f:
+with open(OUT_DIR / "codigos_ecicep_estratificacion.csv", "w", newline="", encoding="utf-8") as f:
     csv.writer(f).writerows(rows)
 
 tot = len(rows) - 1
