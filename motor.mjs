@@ -57,7 +57,7 @@ export function GRUPOS(puntaje) {
 }
 
 const sinTildes = (t) => t.normalize('NFD').replace(/[̀-ͯ]/g, '');
-const normalizar = (t) => sinTildes(String(t ?? '').trim().toLowerCase());
+export const normalizar = (t) => sinTildes(String(t ?? '').trim().toLowerCase());
 
 /*
  * Code index. Walked in CSV order, keeping the FIRST occurrence, because three
