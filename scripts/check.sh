@@ -4,9 +4,9 @@
 #
 #   scripts/check.sh
 #
-# Run it before committing. There is no build step and no package.json to catch a mistake
-# later: motor.mjs and ecicep-codigos.mjs are copied straight into the Site's theme, so a
-# break here is a break there.
+# Run it before committing. There is no bundler and no package.json to catch a mistake
+# later: motor.mjs and the generated modules are deployed byte for byte to GitHub Pages on
+# the next release, so a break here is a break in front of a clinician.
 #
 # No tier skips itself. A missing tool is a FAILURE, never a skip: a tier that skips itself
 # is indistinguishable from a tier that checks nothing, and green then means something the
@@ -21,11 +21,13 @@ echo "== pruebas del motor =="
 if ! command -v node >/dev/null 2>&1; then
   echo "   node no está instalado — no se pueden correr las pruebas"
   fallos=$((fallos + 1))
-elif node --test 'tests/*.test.mjs' >"$REGISTRO" 2>&1; then
+# TAP, explicitly: Node 24's default reporter prints «ℹ pass N», not «# pass N», and the
+# count below then read as zero — a gate that failed a green suite.
+elif node --test --test-reporter=tap 'tests/*.test.mjs' >"$REGISTRO" 2>&1; then
   n=$(sed -n 's/^# pass //p' "$REGISTRO" | head -1)
   # An empty suite exits 0 and would pass vacuously; count the tests, don't trust the code.
   if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
-    echo "   $n prueba(s) OK — motor, fixture dorada y contraste con el Anexo 4"
+    echo "   $n prueba(s) OK — motor, datos, contraste con el Anexo 4, interfaz y sitio"
   else
     echo "   node --test no corrió ninguna prueba — el gate no midió nada"
     fallos=$((fallos + 1))
