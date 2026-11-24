@@ -1,6 +1,7 @@
 # The Calculator lives here, on GitHub Pages, and changes only on a release
 
-- **Status:** accepted (2026-11-24)
+- **Status:** accepted (2026-11-24); item 6 amended the same day in v1.1.1: the page is **light
+  only**, because the light palette is the official look
 
 ## Context
 

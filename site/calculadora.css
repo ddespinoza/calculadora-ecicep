@@ -2,7 +2,7 @@
  *
  * Ported from the Site's mu-plugins/assets/calc/calculadora.css (APS-Conecta/aps-conecta-web,
  * retired 2026-11-24, ADR-0002). That sheet read the Site's design-system variables
- * (`--aps-*`); this one declares its own neutral palette (`--c-*`) and a dark scheme, so the
+ * (`--aps-*`); this one declares its own neutral palette (`--c-*`), light only, so the
  * page depends on nothing outside this folder. No webfonts: the Calculator must work offline
  * on the first paint after install, and system-ui reads well on every clinic machine.
  *
@@ -25,30 +25,9 @@
   --c-shadow-header:0 4px 18px -6px rgba(16,24,40,.16),0 1px 3px rgba(16,24,40,.07);
   --c-w-wide:1180px;
 }
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]){
-    color-scheme:dark;
-    --c-brand-50:#12312d; --c-brand-100:#174039; --c-brand-300:#2f7f73;
-    --c-brand-600:#5fd6c5; --c-brand-700:#7fe3d4; --c-brand-900:#c9f5ee;
-    --c-canvas-50:#1a2029; --c-canvas-100:#222a35; --c-canvas-200:#2f3946;
-    --c-surface:#141a22; --c-page:#0e1319;
-    --c-ink:#e8edf3; --c-muted:#a3afbd; --c-on-ink:#0e1319;
-    --c-success-bg:#0f3324; --c-success-text:#9fe6c3;
-    --c-warn-bg:#3a2610; --c-warn-border:#6b4519; --c-warn-text:#ffc98a;
-    --c-shadow-card:none; --c-shadow-header:none;
-  }
-}
-:root[data-theme="dark"]{
-  color-scheme:dark;
-  --c-brand-50:#12312d; --c-brand-100:#174039; --c-brand-300:#2f7f73;
-  --c-brand-600:#5fd6c5; --c-brand-700:#7fe3d4; --c-brand-900:#c9f5ee;
-  --c-canvas-50:#1a2029; --c-canvas-100:#222a35; --c-canvas-200:#2f3946;
-  --c-surface:#141a22; --c-page:#0e1319;
-  --c-ink:#e8edf3; --c-muted:#a3afbd; --c-on-ink:#0e1319;
-  --c-success-bg:#0f3324; --c-success-text:#9fe6c3;
-  --c-warn-bg:#3a2610; --c-warn-border:#6b4519; --c-warn-text:#ffc98a;
-  --c-shadow-card:none; --c-shadow-header:none;
-}
+/* Light only, by decision (2026-11-24): the light palette is the Calculator's official look,
+   and the pyramid's official G0–G3 colours were sampled for a white page. Devices set to dark
+   mode get this same page; color-scheme:light keeps native controls and scrollbars matching. */
 
 /* ---- base ---- */
 *,*::before,*::after{box-sizing:border-box}
@@ -554,10 +533,9 @@ mark{background:var(--c-brand-100);color:inherit;border-radius:3px;padding:0 1px
   .aps-calc__anadir{font-size:15px;line-height:1.4}
 }
 
-/* ---- dark-scheme corrections ----
- * The Marco Operativo sets black type on every level colour (Figura 8, pág. 74), and the
- * yellow G1 has no light colour that reads on it. So the glyph on an ACTIVE band is ink
- * #101828 in both schemes, not var(--c-ink), which turns light in the dark one. */
+/* ---- level glyph on an active band ----
+ * The Marco Operativo sets black type on every level colour (Figura 8, pág. 74); the yellow G1
+ * needs it most. */
 .pirB__g.is-activo{fill:#101828}
 
 /* The phone bar is fixed, so the page needs room under its last line to scroll clear of it. */
