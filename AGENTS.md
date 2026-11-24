@@ -96,6 +96,11 @@ resolve to that condition, which is why the listing filters through `resolver()`
 
 ## Releasing
 
+One-time settings, already applied on 2026-11-24. Pages has its source set to **GitHub Actions**.
+The `github-pages` environment allows deployments from the `main` branch **and from tags matching
+`v*`**. A release runs on its tag, and without that rule the deploy is refused. Check with `gh api
+repos/ddespinoza/calculadora-ecicep/environments/github-pages/deployment-branch-policies`.
+
 1. Merge to `main` with the gate green, and add the version's entry to `CHANGELOG.md`.
 2. `gh release create vX.Y.Z --target main --title "vX.Y.Z" --notes-file <notes>`, using semver on
    the exported surface: a rename is major, an addition minor, a fix patch.
