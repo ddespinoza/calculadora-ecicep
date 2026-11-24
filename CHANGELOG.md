@@ -8,6 +8,32 @@ the Site's vendored copy.
 
 Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/).
 
+## v1.2.0 — one screen on a computer, tabs on a phone — 2026-11-24
+
+Layout approved by the owner from a working mockup. **No score, code or condition changed.**
+
+### Changed
+- **Desktop: everything on one screen.** Three columns fill the viewport: the person's
+  conditions, the result (group, pyramid, strategy, the «Verifique» note), and the code browser
+  with all 52 conditions and their codes and titles. Each column scrolls inside itself, so the
+  page never scrolls. At 1366×768 it all fits. Under 1120px the code browser opens as a panel
+  from the header.
+- **Phone: four tabs** (Calcular · Resultado · Códigos · Ayuda) with the result kept in a strip
+  at the top. The field has a large **Agregar** button, so the keyboard's Enter key is not
+  needed. Remove buttons and the code browser's **+** are 44px.
+- **An ambiguous name offers its options as buttons** («renal» → ERC 1 pt · ERC avanzada
+  2 pts) instead of a dropdown. It still never picks for the clinician.
+
+### Added
+- **«Frecuentes en APS»**: twelve quick-add buttons (Hipertensión, Diabetes, Dislipidemia,
+  Obesidad, Artrosis, Depresión leve/moderada, Tiroides, Asma, EPOC, Tabaquismo, Ansiedad,
+  ERC). Tapping one adds the condition by its exact name, and tapping again removes it.
+  `tests/ui.test.mjs` checks that each one lands on its own condition.
+- **A + on every row of the code browser** adds or removes that condition.
+
+### Removed
+- The `?debug=1` resolution trace of the Site-era interface.
+
 ## v1.1.1 — light theme only — 2026-11-24
 
 ### Changed

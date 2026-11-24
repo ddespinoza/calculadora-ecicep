@@ -1,542 +1,245 @@
-/* Calculadora ECICEP — presentation.
+/* Calculadora ECICEP — presentation, v1.2.0 «one screen» (approved mockup, 2026-11-24).
  *
- * Ported from the Site's mu-plugins/assets/calc/calculadora.css (APS-Conecta/aps-conecta-web,
- * retired 2026-11-24, ADR-0002). That sheet read the Site's design-system variables
- * (`--aps-*`); this one declares its own neutral palette (`--c-*`), light only, so the
- * page depends on nothing outside this folder. No webfonts: the Calculator must work offline
- * on the first paint after install, and system-ui reads well on every clinic machine.
+ * Desktop: three columns (the person's conditions · result · code browser) inside one
+ * viewport, each scrolling inside itself; nothing scrolls the page. Under 1120px the code
+ * browser becomes a panel opened from the header. Under 760px: header, result strip, one
+ * scrolling view and a four-tab bar. All of it is container queries on .marco.
  *
- * Nothing here can move a score. The clinical behaviour is motor.mjs and the tests.
- */
-
-/* ---- tokens ---- */
+ * Light only, by decision: the light palette is the official look, and the pyramid's G0–G3
+ * colours (Marco Operativo, Figura 8, pág. 74) were sampled for a white page; the level
+ * glyph is ink #101828 on every colour, as the document sets it.
+ *
+ * Nothing here can move a score. The clinical behaviour is motor.mjs and the tests. */
 :root{
   color-scheme:light;
-  --c-brand-50:#eefaf8; --c-brand-100:#d5f2ee; --c-brand-300:#7fd2c6;
-  --c-brand-600:#0d8577; --c-brand-700:#0b6f64; --c-brand-900:#0b3f3a;
-  --c-canvas-50:#f7f8fa; --c-canvas-100:#f1f2f4; --c-canvas-200:#e2e5e9;
-  --c-surface:#ffffff; --c-page:#f7f8fa;
-  --c-ink:#101828; --c-muted:#485363; --c-on-ink:#ffffff;
-  --c-success-bg:#dff5ea; --c-success-text:#0b5e3c;
-  --c-warn-bg:#fdeede; --c-warn-border:#f7d3a8; --c-warn-text:#9a4700;
-  --c-font-display:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  --c-font-body:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-  --c-shadow-card:0 4px 24px -8px rgba(16,24,40,.10);
-  --c-shadow-header:0 4px 18px -6px rgba(16,24,40,.16),0 1px 3px rgba(16,24,40,.07);
-  --c-w-wide:1180px;
+  --brand-50:#eefaf8; --brand-100:#d5f2ee; --brand-300:#7fd2c6; --brand-600:#0d8577; --brand-700:#0b6f64; --brand-900:#0b3f3a;
+  --canvas-50:#f7f8fa; --canvas-100:#f1f2f4; --canvas-200:#e2e5e9; --surface:#fff; --page:#eef1f4;
+  --ink:#101828; --muted:#485363; --on-ink:#fff;
+  --warn-bg:#fdeede; --warn-border:#f7d3a8; --warn-text:#9a4700;
+  --ok-bg:#dff5ea; --ok-text:#0b5e3c;
+  --g3:#fc1a0e; --g2:#e87232; --g1:#f8f400; --g0:#23af4c;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r:12px; --shadow:0 4px 24px -10px rgba(16,24,40,.14);
 }
-/* Light only, by decision (2026-11-24): the light palette is the Calculator's official look,
-   and the pyramid's official G0–G3 colours were sampled for a white page. Devices set to dark
-   mode get this same page; color-scheme:light keeps native controls and scrollbars matching. */
-
-/* ---- base ---- */
 *,*::before,*::after{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
-body{margin:0;background:var(--c-page);color:var(--c-ink);font-family:var(--c-font-body);
-     font-size:16px;line-height:1.5}
-h1,h2,h3,p,ol,ul{margin:0}
+html,body{height:100%}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.45 var(--font);overflow:hidden}
 button,input{font:inherit;color:inherit}
-a{color:var(--c-brand-700)}
-:focus-visible{outline:3px solid var(--c-brand-600);outline-offset:2px}
+h1,h2,h3,p,ul,ol{margin:0}
+:focus-visible{outline:3px solid var(--brand-600);outline-offset:2px}
+[hidden]{display:none!important}
+
+/* ---------- page: one screen ----------
+ * .marco is the size container every layout query below reads; it is exactly the
+ * viewport (dvh, so a phone's collapsing address bar never hides the tab bar). */
+.marco{height:100vh;height:100dvh;container-type:inline-size;container-name:app}
 .screen-reader-text{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+.top{padding-top:max(10px,env(safe-area-inset-top,0px))}
+.top__red{font-size:12px;font-weight:700;color:var(--warn-text);background:var(--warn-bg);border:1px solid var(--warn-border);
+          padding:3px 9px;border-radius:999px;white-space:nowrap}
+.lista--vacia{flex:1}
+.vista-ayuda__h{font-size:18px;margin-bottom:8px}
 
-/* ---- page shell ---- */
-.app{max-width:var(--c-w-wide);margin:0 auto;padding:0 16px}
-.top{padding:28px 0 22px}
-.top__k{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--c-brand-700)}
-.top__h{margin-top:6px;font-family:var(--c-font-display);font-size:clamp(26px,4vw,38px);font-weight:700;
-        letter-spacing:-.02em;line-height:1.15}
-.top__p{margin-top:8px;max-width:68ch;font-size:16px;color:var(--c-muted)}
-.top__red{display:none;margin-top:12px;font-size:13.5px;color:var(--c-warn-text)}
-.top__red.is-on{display:block}
-.pie{margin:40px 0 0;padding:22px 0 36px;border-top:1px solid var(--c-canvas-200);
-     font-size:13.5px;line-height:1.65;color:var(--c-muted)}
-.pie p+p{margin-top:6px}
-.pie__v{font-variant-numeric:tabular-nums}
+/* ---------- app shell ---------- */
+.app{height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden}
+.top{display:flex;align-items:center;gap:14px;padding:10px 20px;background:var(--surface);border-bottom:1px solid var(--canvas-200)}
+.top__logo{width:30px;height:30px;flex:none}
+.top__t{min-width:0}
+.top__h{font-size:18px;font-weight:750;letter-spacing:-.01em;line-height:1.2}
+.top__s{font-size:12.5px;color:var(--muted)}
+.top__acc{margin-left:auto;display:flex;gap:8px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;min-height:40px;padding:0 14px;border-radius:9px;
+     border:1.5px solid var(--canvas-200);background:var(--surface);color:var(--brand-700);font-weight:700;font-size:14px;cursor:pointer}
+.btn:hover{border-color:var(--brand-300);background:var(--brand-50)}
+.btn--pri{background:var(--brand-700);border-color:var(--brand-700);color:#fff}
+.btn--pri:hover{background:var(--brand-600);border-color:var(--brand-600)}
+.btn--sutil{border-color:transparent;color:var(--muted);background:none;min-height:34px;padding:0 10px;font-size:13px}
+.btn svg{width:17px;height:17px;flex:none}
 
-/* ---- the listing: every CIE-10 code, with its title ---- */
-.lst__mas{margin-top:4px;font-size:13px}
-.lst__mas>summary{cursor:pointer;color:var(--c-brand-700);font-weight:700;min-height:32px;
-                  display:inline-flex;align-items:center;list-style:revert}
-.lst__cods{margin-top:6px;border:1px solid var(--c-canvas-200);border-radius:8px;overflow:hidden}
-.lst__cod{display:grid;grid-template-columns:76px minmax(0,1fr);gap:10px;padding:6px 10px;
-          border-top:1px solid var(--c-canvas-200);font-size:13px;line-height:1.45;color:var(--c-ink)}
-.lst__cod:first-child{border-top:0}
-.lst__cod b{font-variant-numeric:tabular-nums;font-weight:700}
-.lst__cod--m{background:var(--c-canvas-50)}
-.lst__cod--hit{background:var(--c-brand-50)}
-.lst__cod small{display:block;color:var(--c-muted);font-size:12px}
-.aps-calc__modal{background:var(--c-surface);color:var(--c-ink);border:1px solid var(--c-canvas-200);border-radius:14px}
-mark{background:var(--c-brand-100);color:inherit;border-radius:3px;padding:0 1px}
+.main{display:grid;grid-template-columns:minmax(360px,1.1fr) minmax(300px,340px) minmax(340px,1fr);gap:14px;padding:14px;min-height:0}
+.col{background:var(--surface);border:1px solid var(--canvas-200);border-radius:var(--r);display:flex;flex-direction:column;min-height:0;min-width:0;overflow:hidden}
+.col__hd{display:flex;align-items:baseline;gap:10px;padding:14px 16px 0}
+.col__t{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.col__hd .btn--sutil{margin-left:auto}
+.cuerpo{padding:12px 16px 16px;display:flex;flex-direction:column;gap:12px;min-height:0;flex:1}
 
-/* ---- icons (Lucide, MIT) ---- */
-/* A CSS mask clips a BACKGROUND. Without this rule the masks below had nothing to
- * clip: every .i was a transparent box that still took its 17px, which is what
- * pushed each button label 12.5px — half of icon+gap — right of its pill and read
- * as «the text is off-centre». Six icon slots, zero pixels painted.
- *
- * Consequence worth knowing: with this rule an `i--*` class that has NO mask is no
- * longer invisible, it is a solid square. check-theme.php comprobación 7 is what
- * keeps that from shipping — it failed on exactly the three below before they were
- * written. currentColor, so an icon is always the colour of the text beside it. */
-.i{display:inline-block;flex:none;background-color:currentColor}
-/* Lucide, same 24-viewBox / stroke-2 / round-cap style as the three that existed.
-   These were used in the markup and never defined at all. */
-.i--calculator{-webkit-mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjIwIiB4PSI0IiB5PSIyIiByeD0iMiIvPjxsaW5lIHgxPSI4IiB4Mj0iMTYiIHkxPSI2IiB5Mj0iNiIvPjxsaW5lIHgxPSIxNiIgeDI9IjE2IiB5MT0iMTQiIHkyPSIxOCIvPjxwYXRoIGQ9Ik0xNiAxMGguMDEiLz48cGF0aCBkPSJNMTIgMTBoLjAxIi8+PHBhdGggZD0iTTggMTBoLjAxIi8+PHBhdGggZD0iTTEyIDE0aC4wMSIvPjxwYXRoIGQ9Ik04IDE0aC4wMSIvPjxwYXRoIGQ9Ik0xMiAxOGguMDEiLz48cGF0aCBkPSJNOCAxOGguMDEiLz48L3N2Zz4=") center/contain no-repeat;mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjIwIiB4PSI0IiB5PSIyIiByeD0iMiIvPjxsaW5lIHgxPSI4IiB4Mj0iMTYiIHkxPSI2IiB5Mj0iNiIvPjxsaW5lIHgxPSIxNiIgeDI9IjE2IiB5MT0iMTQiIHkyPSIxOCIvPjxwYXRoIGQ9Ik0xNiAxMGguMDEiLz48cGF0aCBkPSJNMTIgMTBoLjAxIi8+PHBhdGggZD0iTTggMTBoLjAxIi8+PHBhdGggZD0iTTEyIDE0aC4wMSIvPjxwYXRoIGQ9Ik04IDE0aC4wMSIvPjxwYXRoIGQ9Ik0xMiAxOGguMDEiLz48cGF0aCBkPSJNOCAxOGguMDEiLz48L3N2Zz4=") center/contain no-repeat}
-.i--download{-webkit-mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDE1djRhMiAyIDAgMCAxLTIgMkg1YTIgMiAwIDAgMS0yLTJ2LTQiLz48cG9seWxpbmUgcG9pbnRzPSI3IDEwIDEyIDE1IDE3IDEwIi8+PGxpbmUgeDE9IjEyIiB4Mj0iMTIiIHkxPSIxNSIgeTI9IjMiLz48L3N2Zz4=") center/contain no-repeat;mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTIxIDE1djRhMiAyIDAgMCAxLTIgMkg1YTIgMiAwIDAgMS0yLTJ2LTQiLz48cG9seWxpbmUgcG9pbnRzPSI3IDEwIDEyIDE1IDE3IDEwIi8+PGxpbmUgeDE9IjEyIiB4Mj0iMTIiIHkxPSIxNSIgeTI9IjMiLz48L3N2Zz4=") center/contain no-repeat}
-.i--triangle-alert{-webkit-mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0ibTIxLjczIDE4LTgtMTRhMiAyIDAgMCAwLTMuNDggMGwtOCAxNEEyIDIgMCAwIDAgNCAyMWgxNmEyIDIgMCAwIDAgMS43My0zIi8+PHBhdGggZD0iTTEyIDl2NCIvPjxwYXRoIGQ9Ik0xMiAxN2guMDEiLz48L3N2Zz4=") center/contain no-repeat;mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0ibTIxLjczIDE4LTgtMTRhMiAyIDAgMCAwLTMuNDggMGwtOCAxNEEyIDIgMCAwIDAgNCAyMWgxNmEyIDIgMCAwIDAgMS43My0zIi8+PHBhdGggZD0iTTEyIDl2NCIvPjxwYXRoIGQ9Ik0xMiAxN2guMDEiLz48L3N2Zz4=") center/contain no-repeat}
-.i--help{-webkit-mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48cGF0aCBkPSJNOS4wOSA5YTMgMyAwIDAgMSA1LjgzIDFjMCAyLTMgMy0zIDMiLz48cGF0aCBkPSJNMTIgMTdoLjAxIi8+PC9zdmc+") center/contain no-repeat;mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iMTAiLz48cGF0aCBkPSJNOS4wOSA5YTMgMyAwIDAgMSA1LjgzIDFjMCAyLTMgMy0zIDMiLz48cGF0aCBkPSJNMTIgMTdoLjAxIi8+PC9zdmc+") center/contain no-repeat}
-.i--list{-webkit-mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTMgMTJoLjAxIi8+PHBhdGggZD0iTTMgMThoLjAxIi8+PHBhdGggZD0iTTMgNmguMDEiLz48cGF0aCBkPSJNOCAxMmgxMyIvPjxwYXRoIGQ9Ik04IDE4aDEzIi8+PHBhdGggZD0iTTggNmgxMyIvPjwvc3ZnPg==") center/contain no-repeat;mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTMgMTJoLjAxIi8+PHBhdGggZD0iTTMgMThoLjAxIi8+PHBhdGggZD0iTTMgNmguMDEiLz48cGF0aCBkPSJNOCAxMmgxMyIvPjxwYXRoIGQ9Ik04IDE4aDEzIi8+PHBhdGggZD0iTTggNmgxMyIvPjwvc3ZnPg==") center/contain no-repeat}
-.i--trash{-webkit-mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTMgNmgxOCIvPjxwYXRoIGQ9Ik0xOSA2djE0YTIgMiAwIDAgMS0yIDJIN2EyIDIgMCAwIDEtMi0yVjYiLz48cGF0aCBkPSJNOCA2VjRhMiAyIDAgMCAxIDItMmg0YTIgMiAwIDAgMSAyIDJ2MiIvPjwvc3ZnPg==") center/contain no-repeat;mask:url("data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMDAwIiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCI+PHBhdGggZD0iTTMgNmgxOCIvPjxwYXRoIGQ9Ik0xOSA2djE0YTIgMiAwIDAgMS0yIDJIN2EyIDIgMCAwIDEtMi0yVjYiLz48cGF0aCBkPSJNOCA2VjRhMiAyIDAgMCAxIDItMmg0YTIgMiAwIDAgMSAyIDJ2MiIvPjwvc3ZnPg==") center/contain no-repeat}
+/* entrada */
+.campo{position:relative}
+.campo__fila{display:flex;gap:8px}
+.inp{flex:1;min-width:0;height:46px;padding:0 14px;border-radius:9px;border:1.5px solid var(--canvas-200);background:var(--surface);font-size:16px}
+.inp:hover{border-color:var(--brand-300)}
+.ayuda{font-size:12.5px;color:var(--muted)}
+.sug{position:absolute;z-index:20;left:0;right:0;top:50px;margin:0;padding:4px;list-style:none;background:var(--surface);
+     border:1px solid var(--canvas-200);border-radius:10px;box-shadow:0 12px 28px rgb(16 24 40 / 16%);max-height:300px;overflow:auto}
+.sug li{display:flex;justify-content:space-between;gap:10px;align-items:baseline;padding:9px 11px;border-radius:7px;cursor:pointer;min-height:42px}
+.sug li:hover,.sug li[aria-selected="true"]{background:var(--brand-50)}
+.sug em{font-style:normal;font-size:12px;color:var(--brand-700);background:var(--brand-50);padding:1px 5px;border-radius:5px;margin-left:6px}
+.pj{font-size:12.5px;font-weight:700;color:var(--muted);white-space:nowrap}
 
+.chips__t{font-size:12px;color:var(--muted);margin-bottom:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:34px;padding:0 11px;border-radius:999px;border:1.5px solid var(--canvas-200);
+      background:var(--surface);font-size:13px;font-weight:600;cursor:pointer;color:var(--ink)}
+.chip:hover{border-color:var(--brand-300)}
+.chip[aria-pressed="true"]{background:var(--brand-700);border-color:var(--brand-700);color:#fff}
+.chip small{font-weight:700;opacity:.7}
 
-/* ---- review status: the most important fact on a clinical page, so it leads ---- */
-.vig{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 18px;
-     background:var(--c-success-bg);border-radius:12px}
-.vig__badge{display:inline-flex;align-items:center;height:26px;padding:0 11px;border-radius:8px;
-            background:var(--c-surface);color:var(--c-success-text);font-size:12.5px;font-weight:700;flex:none}
-.vig__t{flex:1 1 340px;min-width:0;font-size:14.5px;line-height:1.55;color:var(--c-success-text)}
-.vig__t b{font-weight:700}
-.vig__pdf{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:8px;
-          background:var(--c-surface);color:var(--c-brand-700);font-size:14px;font-weight:700;flex:none}
-.vig__pdf:hover{background:var(--c-brand-50)}
-.vig__pdf .i{width:16px;height:16px}
+.amb{border:1px solid var(--warn-border);background:var(--warn-bg);color:var(--warn-text);border-radius:10px;padding:10px 12px;font-size:13.5px}
+.amb__ops{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.amb__ops .chip{border-color:var(--warn-border)}
 
+.lista{flex:1;min-height:0;display:flex;flex-direction:column;border:1px solid var(--canvas-200);border-radius:10px;overflow:hidden}
+.lista__l{flex:1;min-height:0;overflow:auto}
+.fila{display:grid;grid-template-columns:minmax(0,1fr) auto 34px 40px;gap:10px;align-items:center;padding:8px 6px 8px 12px;border-bottom:1px solid var(--canvas-200)}
+.fila__n{line-height:1.3}
+.fila__c{font-size:12.5px;color:var(--muted);text-align:right;font-variant-numeric:tabular-nums}
+.fila__p{text-align:right;font-weight:750;font-variant-numeric:tabular-nums}
+.fila--repetida{color:var(--muted)} .fila--repetida .fila__p{font-weight:400;font-size:12px}
+.fila--desconocida{background:var(--warn-bg);color:var(--warn-text)} .fila--desconocida .fila__c{color:var(--warn-text)}
+.x{width:40px;height:40px;border:0;background:none;border-radius:50%;cursor:pointer;color:var(--muted);font-size:18px}
+.x:hover{background:var(--brand-50);color:var(--brand-700)}
+.vacio{display:grid;place-items:center;text-align:center;padding:24px;color:var(--muted);font-size:14px;flex:1}
+.vacio b{display:block;color:var(--ink);font-size:16px;margin-bottom:4px}
+.total{display:grid;grid-template-columns:minmax(0,1fr) auto 34px 40px;gap:10px;align-items:center;padding:10px 6px 10px 12px;background:var(--canvas-50);font-weight:750}
+.total span:nth-child(2){font-weight:400;font-size:12.5px;color:var(--muted)}
+.total span:nth-child(3){text-align:right;font-size:17px}
 
-/* ---- two columns: conditions on the left, the answer pinned on the right ---- */
-.calc{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:26px;align-items:start}
-.calc>*{min-width:0}
-.calc__panel{position:sticky;top:96px;display:flex;flex-direction:column;gap:16px}
+/* resultado */
+.res{padding:14px 16px 16px;display:flex;flex-direction:column;gap:12px;overflow:auto;flex:1}
+.grupo{display:flex;align-items:center;gap:14px;padding:14px;border-radius:12px;background:var(--canvas-50);border:1px solid var(--canvas-200)}
+.grupo__g{display:grid;place-items:center;width:68px;height:68px;border-radius:14px;font-size:28px;font-weight:800;color:#101828;
+          background:var(--canvas-100);box-shadow:inset 0 0 0 2px #101828;flex:none}
+.grupo__g--G0{background:var(--g0)} .grupo__g--G1{background:var(--g1)} .grupo__g--G2{background:var(--g2)} .grupo__g--G3{background:var(--g3)}
+.grupo__g--vacio{box-shadow:inset 0 0 0 2px var(--canvas-200);color:var(--muted);font-size:20px}
+.grupo__e{font-size:19px;font-weight:750}
+.grupo__p{font-size:13.5px;color:var(--muted)}
+.pir{display:grid;grid-template-columns:150px 1fr;gap:12px;align-items:center}
+.pir svg{width:100%;height:auto;display:block}
+.pir polygon{stroke-width:1.5}
+.pir text{font-size:24px;font-weight:700;text-anchor:middle;fill:#9aa3ae}
+.n-G3{fill:color-mix(in srgb,var(--g3) 7%,#fff);stroke:color-mix(in srgb,var(--g3) 25%,#fff)}
+.n-G2{fill:color-mix(in srgb,var(--g2) 7%,#fff);stroke:color-mix(in srgb,var(--g2) 25%,#fff)}
+.n-G1{fill:color-mix(in srgb,var(--g1) 9%,#fff);stroke:color-mix(in srgb,var(--g1) 35%,#fff)}
+.n-G0{fill:color-mix(in srgb,var(--g0) 7%,#fff);stroke:color-mix(in srgb,var(--g0) 25%,#fff)}
+.n-G3.tinte{fill:color-mix(in srgb,var(--g3) 28%,#fff)} .n-G2.tinte{fill:color-mix(in srgb,var(--g2) 28%,#fff)}
+.n-G1.tinte{fill:color-mix(in srgb,var(--g1) 30%,#fff)} .n-G0.tinte{fill:color-mix(in srgb,var(--g0) 28%,#fff)}
+.n-G3.activo{fill:var(--g3);stroke:#101828;stroke-width:2.5} .n-G2.activo{fill:var(--g2);stroke:#101828;stroke-width:2.5}
+.n-G1.activo{fill:var(--g1);stroke:#101828;stroke-width:2.5} .n-G0.activo{fill:var(--g0);stroke:#101828;stroke-width:2.5}
+.pir text.activo{fill:#101828}
+.ley{display:flex;flex-direction:column;gap:2px;font-size:12.5px}
+.ley div{display:grid;grid-template-columns:28px 1fr auto;gap:6px;padding:4px 6px;border-radius:6px;color:var(--muted)}
+.ley div.activo{background:var(--canvas-50);color:var(--ink);font-weight:700}
+.ley b{color:var(--ink)}
+.est__t{font-size:12px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:4px}
+.est p{font-size:14.5px;line-height:1.55}
+.verif{display:flex;gap:9px;padding:10px 12px;border-radius:10px;background:var(--warn-bg);border:1px solid var(--warn-border);color:var(--warn-text);font-size:12.5px;line-height:1.45}
+.verif svg{width:17px;height:17px;flex:none;margin-top:1px}
 
-.calc__acciones{display:flex;gap:10px;flex-wrap:wrap}
-.calc__btn{display:inline-flex;align-items:center;gap:8px;height:44px;padding:0 16px;border-radius:8px;
-           background:var(--c-surface);border:1.5px solid var(--c-canvas-200);color:var(--c-brand-700);
-           font-family:var(--c-font-body);font-size:14.5px;font-weight:700;cursor:pointer;
-           transition:border-color .16s ease,background-color .16s ease}
-.calc__btn:hover{border-color:var(--c-brand-300);background:var(--c-brand-50)}
-.calc__btn .i{width:17px;height:17px}
-.calc__btn--limpiar{color:var(--c-muted)}
+/* códigos */
+.cod{display:flex;flex-direction:column;min-height:0;flex:1}
+.cod__f{padding:12px 16px 8px}
+.cod__f .inp{width:100%}
+.cod__n{font-size:12px;color:var(--muted);margin-top:6px}
+.cod__l{flex:1;min-height:0;overflow:auto;padding:0 8px 12px}
+.cf{border-bottom:1px solid var(--canvas-200);padding:8px 8px}
+.cf__r{display:grid;grid-template-columns:minmax(0,1fr) auto 36px;gap:8px;align-items:start}
+.cf__n{font-weight:600;line-height:1.3}
+.cf__c{font-size:12px;color:var(--muted);margin-top:2px}
+.cf__p{font-weight:750;font-size:13px;color:var(--muted);padding-top:2px;white-space:nowrap}
+.mas{width:36px;height:36px;border-radius:9px;border:1.5px solid var(--canvas-200);background:var(--surface);color:var(--brand-700);font-size:20px;line-height:1;cursor:pointer}
+.mas:hover{background:var(--brand-50);border-color:var(--brand-300)}
+.mas[aria-pressed="true"]{background:var(--brand-700);border-color:var(--brand-700);color:#fff;font-size:15px}
+.cf details{margin-top:4px;font-size:12.5px}
+.cf summary{cursor:pointer;color:var(--brand-700);font-weight:700;min-height:28px;display:inline-flex;align-items:center}
+.cods{margin-top:4px;border:1px solid var(--canvas-200);border-radius:8px;overflow:hidden}
+.cods div{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px;padding:5px 9px;border-top:1px solid var(--canvas-200)}
+.cods div:first-child{border-top:0}
+.cods b{font-variant-numeric:tabular-nums}
+.cods .m{background:var(--canvas-50)} .cods .hit{background:var(--brand-50)}
+.cods small{display:block;color:var(--muted)}
 
-/* The suggestions list is position:absolute with left:0;right:0, so it resolves
-   against the nearest positioned ancestor. Without this it took the whole viewport —
-   1280px wide under a 734px field. The original sheet had it; rewriting this file from
-   the mockup lost it, and a mockup has no live dropdown to notice. */
-.calc__campo{margin-top:22px;position:relative}
-/* Was #9e9e9e on #f7f8fa — 2.52:1, and it is the field's own label. */
-.calc__label{display:block;font-size:14px;font-weight:800;letter-spacing:.02em;color:var(--c-ink)}
-.calc__input{display:block;width:100%;height:52px;margin-top:9px;padding:0 16px;border-radius:8px;
-             border:1.5px solid var(--c-canvas-200);background:var(--c-surface);color:var(--c-ink);
-             font-family:var(--c-font-body);font-size:16px}
-.calc__input::placeholder{color:var(--c-muted)}
-.calc__input:hover{border-color:var(--c-brand-300)}
-.calc__ayuda{margin-top:10px;font-size:13.5px;line-height:1.6;color:var(--c-muted)}
+.pie{display:flex;gap:6px 16px;flex-wrap:wrap;align-items:center;padding:7px 20px;font-size:12px;color:var(--muted);
+     background:var(--surface);border-top:1px solid var(--canvas-200)}
+.pie a{color:var(--brand-700)}
+.pie__v{margin-left:auto;font-variant-numeric:tabular-nums}
 
+.toast{position:absolute;left:50%;transform:translateX(-50%);bottom:56px;z-index:40;display:flex;gap:10px;align-items:center;
+       background:var(--ink);color:#fff;padding:10px 14px;border-radius:10px;font-size:13.5px;box-shadow:var(--shadow)}
+.toast button{border:1.5px solid #fff;background:none;color:#fff;border-radius:999px;padding:3px 10px;font-weight:700;cursor:pointer}
+.app{position:relative}
 
-/* ---- empty state: showing G0 before any input presents a wrong answer as an answer ---- */
-.calc__vacio{margin-top:26px;padding:34px 26px;border:1.5px dashed var(--c-canvas-200);border-radius:14px;
-             background:var(--c-surface);text-align:center}
-.calc__vacio-i{display:inline-block;width:30px;height:30px;color:var(--c-brand-300)}
-.calc__vacio-t{margin-top:12px;font-family:var(--c-font-display);font-size:19px;font-weight:600;color:var(--c-ink)}
-.calc__vacio-d{margin-top:8px;font-size:14.5px;line-height:1.6;color:var(--c-muted);max-width:44ch;
-               margin-inline:auto}
+/* tutorial dialog (desktop) */
+dialog{border:1px solid var(--canvas-200);border-radius:14px;padding:22px 24px;width:min(620px,calc(100vw - 32px));max-height:86vh;color:var(--ink)}
+dialog::backdrop{background:rgb(16 24 40 / 50%)}
+dialog h2{font-size:20px;margin-bottom:10px}
+.ayu h3{font-size:15px;margin:14px 0 6px}
+.ayu ul,.ayu ol{padding-left:18px;display:grid;gap:5px;font-size:14px}
+.ayu table{border-collapse:collapse;width:100%;font-size:13.5px}
+.ayu td,.ayu th{text-align:left;padding:5px 6px;border-bottom:1px solid var(--canvas-200)}
+.pip{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;box-shadow:inset 0 0 0 1.5px #101828}
 
-/* Every class here sets its own display, and an author rule beats the UA's
-   [hidden]{display:none} — so without this, `hidden` renders nothing invisible and
-   «Limpiar todo» stayed on screen with an empty list. */
-[data-aps-calc] [hidden]{display:none!important}
+/* phone-only pieces */
+.franja,.tabs,.vista-ayuda{display:none}
 
-/* Alerts. #9a4700 on #fdeede measures 5.31:1. */
-[data-aps-calc] .alert{display:flex;gap:12px;align-items:flex-start;padding:18px 20px;border-radius:8px}
-[data-aps-calc] .alert p{font-size:15px;line-height:1.55;margin:0}
-[data-aps-calc] .alert .i{width:19px;height:19px;margin-top:2px;flex:none}
-[data-aps-calc] .alert--warn{background:var(--c-warn-bg);border:1px solid var(--c-warn-border);color:var(--c-warn-text)}
-[data-aps-calc] .alert--info{background:var(--c-brand-50);border:1px solid var(--c-brand-300);color:var(--c-brand-900)}
-[data-aps-calc] .alert--info .i{color:var(--c-brand-700)}
-
-/* ---- the single record of what was entered -------------------------------
- * Chips and a sum table stated the same three facts twice. One list: what it is,
- * its code, what it is worth, how to take it out — then the total.
- */
-.pat{margin-top:26px;border:1px solid var(--c-canvas-200);border-radius:12px;overflow:hidden;background:var(--c-surface)}
-.pat__hd,.pat__r,.pat__tot{display:grid;grid-template-columns:minmax(0,1fr) 116px 60px 40px;
-                           gap:12px;align-items:center;padding:0 8px 0 16px}
-.pat__hd{height:40px;background:var(--c-brand-50);color:var(--c-brand-900);font-size:12.5px;
-         font-weight:800;letter-spacing:.02em}
-.pat__hd>*:nth-child(2),.pat__hd>*:nth-child(3){text-align:right}
-.pat__r{min-height:56px;border-top:1px solid var(--c-canvas-200);font-size:15.5px}
-.pat__n{min-width:0;line-height:1.4}
-.pat__c{text-align:right;font-size:13.5px;color:var(--c-muted);font-variant-numeric:tabular-nums}
-.pat__p{text-align:right;font-weight:700;font-variant-numeric:tabular-nums}
-/* Removing a condition from a clinical calculation is a thumb press, so the target is
-   44x44 — but it does not have to cost 44px of column: it reaches into the row's right
-   padding instead. It was display:block with padding:0, and the site cascade drops the
-   UA button's text-align:center, so the glyph sat flush against the left edge of its
-   box while the hover disc drew centred around it. A grid cannot drift like that. */
-.pat__x{display:grid;place-items:center;width:44px;height:44px;justify-self:end;
-        margin-right:-2px;padding:0;border:0;background:transparent;color:var(--c-muted);
-        cursor:pointer;transition:color .16s ease}
-.pat__x-g{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;
-          background:var(--c-canvas-100);font-size:15px;line-height:1;
-          transition:background-color .16s ease}
-.pat__x:hover{color:var(--c-brand-700)}
-.pat__x:hover .pat__x-g{background:var(--c-brand-50)}
-/* A repeated entry and one that is not in the official listing are not ordinary rows:
-   they contribute nothing to the score and must not look like they do. */
-.pat__r--repetida{color:var(--c-muted)}
-.pat__r--repetida .pat__p{font-weight:400;font-size:13px}
-.pat__r--desconocida{background:var(--c-warn-bg);color:var(--c-warn-text)}
-.pat__r--desconocida .pat__c,.pat__r--desconocida .pat__p{color:var(--c-warn-text)}
-.pat__r--desconocida .pat__x{color:var(--c-warn-text)}
-
-.pat__tot{grid-template-columns:auto minmax(0,1fr) 60px 40px;min-height:52px;
-          border-top:1.5px solid var(--c-canvas-200);background:var(--c-canvas-50);font-weight:700}
-.pat__tot .pat__c{text-align:right;white-space:nowrap;font-weight:400}
-.pat__tot .pat__p{font-size:17px}
-
-/* ---- the scale ----------------------------------------------------------
- * The pyramid and its colours are the Marco Operativo's own iconography, not a
- * design choice: Figura 8, «Iconografía de la identificación de personas según
- * estratificación», MINSAL 2025, pág. 74, which shows G3–G0 as red / orange /
- * yellow / green in both circle and triangle form. Sampled from that figure at
- * 400 dpi rather than eyeballed. They are deliberately NOT in tokens.json: that
- * file is the brand, and these are a clinical convention the site reproduces.
- *
- * The document sets black type on every icon, and measurement agrees — white on
- * the red is 3.98:1 and on the green 2.87:1, while ink clears every level. The
- * glyph is 24px so it is large text on the red, where ink measures 4.46:1.
- */
-:root{
-  --ecicep-g3:#fc1a0e;
-  --ecicep-g2:#e87232;
-  --ecicep-g1:#f8f400;
-  --ecicep-g0:#23af4c;
+/* ---------- mid width: the code browser becomes a panel you open ---------- */
+@container app (max-width:1120px){
+  .main{grid-template-columns:minmax(0,1.2fr) minmax(300px,1fr)}
+  .col--cod{display:none}
+  .app.cod-abierto .col--cod{display:flex;position:absolute;z-index:30;top:62px;right:14px;bottom:44px;width:min(520px,calc(100% - 28px));box-shadow:0 20px 50px -10px rgba(16,24,40,.35)}
+  .solo-ancho{display:none}
 }
-.pirB{background:var(--c-surface);border:1px solid var(--c-canvas-200);border-radius:14px;padding:18px;box-shadow:var(--c-shadow-card)}
-.pirB__t{font-size:13px;font-weight:800;letter-spacing:.02em;color:var(--c-muted)}
-.pirB__svg{display:block;width:100%;height:auto;margin-top:10px}
-.pirB__n{stroke-width:1.5;transition:fill .2s ease,stroke .2s ease}
-.pirB__g{font-family:var(--c-font-display);font-size:24px;font-weight:600;fill:var(--c-muted);text-anchor:middle;
-         transition:fill .2s ease}
-/* Resting: the official hue, heavily tinted, so the whole scale is still readable
-   as the ECICEP scale. Active: the hue at full strength. One declaration per
-   colour; the tints are derived, never retyped. */
-/* Three states, not two, and the middle one is not decoration: ECICEP's strategies
-   are nested, so G0's population-wide prevention still applies to a G3 patient.
-   Flattening every non-active band to the same faint tone would assert something
-   clinically false — ui.mjs has said so since before this re-skin.
-     solid   = this person's group
-     tint    = below it, still applies
-     outline = above it, not reached  */
-.pirB__n--G3{fill:color-mix(in srgb,var(--ecicep-g3) 6%,var(--c-surface));stroke:color-mix(in srgb,var(--ecicep-g3) 20%,var(--c-surface))}
-.pirB__n--G2{fill:color-mix(in srgb,var(--ecicep-g2) 6%,var(--c-surface));stroke:color-mix(in srgb,var(--ecicep-g2) 20%,var(--c-surface))}
-.pirB__n--G1{fill:color-mix(in srgb,var(--ecicep-g1) 6%,var(--c-surface));stroke:color-mix(in srgb,var(--ecicep-g1) 28%,var(--c-surface))}
-.pirB__n--G0{fill:color-mix(in srgb,var(--ecicep-g0) 6%,var(--c-surface));stroke:color-mix(in srgb,var(--ecicep-g0) 20%,var(--c-surface))}
-.pirB__n--G3.is-tinte{fill:color-mix(in srgb,var(--ecicep-g3) 26%,var(--c-surface));stroke:color-mix(in srgb,var(--ecicep-g3) 55%,var(--c-surface))}
-.pirB__n--G2.is-tinte{fill:color-mix(in srgb,var(--ecicep-g2) 26%,var(--c-surface));stroke:color-mix(in srgb,var(--ecicep-g2) 55%,var(--c-surface))}
-.pirB__n--G1.is-tinte{fill:color-mix(in srgb,var(--ecicep-g1) 26%,var(--c-surface));stroke:color-mix(in srgb,var(--ecicep-g1) 62%,var(--c-surface))}
-.pirB__n--G0.is-tinte{fill:color-mix(in srgb,var(--ecicep-g0) 26%,var(--c-surface));stroke:color-mix(in srgb,var(--ecicep-g0) 55%,var(--c-surface))}
-.pirB__g.is-tinte{fill:color-mix(in srgb,var(--c-muted) 80%,var(--c-surface))}
-/* The chosen level: full official colour AND an ink outline, so «this one» reads
-   from the shape, not only from the hue — a reader who cannot separate the reds
-   from the greens still sees which band is picked. */
-.pirB__n--G3.is-activo{fill:var(--ecicep-g3);stroke:var(--c-ink);stroke-width:2.5}
-.pirB__n--G2.is-activo{fill:var(--ecicep-g2);stroke:var(--c-ink);stroke-width:2.5}
-.pirB__n--G1.is-activo{fill:var(--ecicep-g1);stroke:var(--c-ink);stroke-width:2.5}
-.pirB__n--G0.is-activo{fill:var(--ecicep-g0);stroke:var(--c-ink);stroke-width:2.5}
-.pirB__g{fill:color-mix(in srgb,var(--c-muted) 45%,var(--c-surface))}
-.pirB__g.is-activo{fill:var(--c-ink);font-size:27px}
-.pirB__leyenda{margin-top:14px;display:flex;flex-direction:column;gap:2px;font-size:13px}
-.pirB__fila{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;
-            padding:7px 10px;border-radius:7px;border-left:3px solid transparent;color:var(--c-muted)}
-.pirB__fila.is-activo{color:var(--c-ink);font-weight:700;background:var(--c-canvas-50)}
-.pirB__fila.is-tinte{color:var(--c-ink)}
-.pirB__fila.is-tinte .pirB__sw{opacity:.75}
-.pirB__fila--G3.is-activo{border-left-color:var(--ecicep-g3)}
-.pirB__fila--G2.is-activo{border-left-color:var(--ecicep-g2)}
-.pirB__fila--G1.is-activo{border-left-color:var(--ecicep-g1)}
-.pirB__fila--G0.is-activo{border-left-color:var(--ecicep-g0)}
-.pirB__aqui{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--c-brand-700)}
-.pirB__k{display:inline-flex;align-items:center;gap:7px;font-family:var(--c-font-display);font-size:15px;
-         font-weight:600;color:var(--c-ink)}
-/* The swatch repeats the icon, so the legend is readable without tracing a line
-   back to the shape — and the group letter carries the meaning regardless. */
-.pirB__sw{width:11px;height:11px;border-radius:3px;flex:none;opacity:.4;transition:opacity .18s ease}
-.pirB__fila.is-activo .pirB__sw{opacity:1;outline:1.5px solid var(--c-ink);outline-offset:1px}
-.pirB__sw--G3{background:var(--ecicep-g3)} .pirB__sw--G2{background:var(--ecicep-g2)}
-.pirB__sw--G1{background:var(--ecicep-g1)} .pirB__sw--G0{background:var(--ecicep-g0)}
-.pirB__v{font-variant-numeric:tabular-nums;font-weight:700}
+@container app (min-width:1121px){ .solo-medio{display:none} }
 
-/* ---- the answer ---- */
-.res{background:var(--c-surface);border:1px solid var(--c-canvas-200);border-radius:14px;padding:20px;box-shadow:var(--c-shadow-card)}
-.res__g{display:flex;align-items:center;gap:9px;font-family:var(--c-font-display);font-size:15px;
-        font-weight:600;color:var(--c-muted)}
-.res__sw{width:14px;height:14px;border-radius:4px;outline:1.5px solid var(--c-ink);outline-offset:1px;flex:none}
-.res__sw--G3{background:var(--ecicep-g3)} .res__sw--G2{background:var(--ecicep-g2)}
-.res__sw--G1{background:var(--ecicep-g1)} .res__sw--G0{background:var(--ecicep-g0)}
-.res__g b{font-size:30px;font-weight:600;color:var(--c-brand-900);letter-spacing:-.02em}
-/* The strategy is now the card's content, not a footnote under a repeated score. */
-.res__est{margin-top:12px;font-size:15.5px;line-height:1.6;color:var(--c-ink)}
-.res__sig{margin-top:12px;font-size:15px;line-height:1.5;color:var(--c-muted)}
-.res--vacio{background:var(--c-canvas-50);box-shadow:none}
-.res--vacio .res__sig{font-weight:400;color:var(--c-muted)}
-
-.calc__decl{margin-top:32px}
-.calc__credito{margin-top:16px;font-size:13.5px;color:var(--c-muted)}
-
-/* ---- phone: the answer must not scroll away while conditions are added ---- */
-.calc__barra{display:none}
-
-@media (max-width:880px){
-  /* Variant B on the phone: same 44px target, 4px less column, and no disc at rest —
-     the disc only ever existed as pointer feedback, which touch never receives. */
-  /* Sized to their content, and the content changed on 2026-08-31: the Código column
-     no longer holds one code like «N18.4» but the condition's whole SET, compressed
-     into ranges — «D50–D52 · D55–D64», and at worst «F11–F16 · F18–F19 · Z72».
-     58px was right for the old premise. Measured at the new one it put the longest
-     entry on four lines and a 218px row at 320px, so on the phone the code stops
-     being a column and takes its own line under the name, where it has the whole
-     width and never needs more than two. Eight of the 52 conditions are long enough
-     to care; the other 44 simply sit on one line either way. */
-  .pat__hd,.pat__r,.pat__tot{grid-template-columns:minmax(0,1fr) 34px 36px;
-                             gap:10px;padding-left:12px}
-  .pat__hd{grid-template-areas:"nom pts x"}
-  .pat__r{grid-template-areas:"nom pts x" "cod cod cod";row-gap:2px}
-  .pat__r .pat__n{grid-area:nom}
-  .pat__r .pat__p{grid-area:pts}
-  .pat__r .pat__x{grid-area:x}
-  /* Left-aligned here: under the name it reads as a caption of it, not as a column
-     of figures, and a right-aligned second line would float away from what it labels. */
-  .pat__r .pat__c{grid-area:cod;text-align:left;font-size:12.5px;padding-bottom:2px}
-  /* The header keeps «Patología» and «Pts»; «Código» would label a column that no
-     longer exists at this width. Hidden rather than deleted, so one markup serves both. */
-  .pat__hd .pat__c{display:none}
-  .pat__tot{grid-template-columns:auto minmax(0,1fr) 34px 36px;grid-template-areas:none}
-  /* «5 patologías distintas» is 134px of nowrap text in a 122px cell at 320px, so the
-     count was clipped. Pre-existing — the total row's columns are untouched by the
-     stacking above — and cheap to end: let it wrap. It is a sentence, not a figure. */
-  .pat__tot .pat__c{white-space:normal;text-align:right}
-  .pat__x{margin-right:-4px}
-  .pat__x-g{width:30px;height:30px;background:transparent;font-size:16px}
-  .pat__x:active .pat__x-g{background:var(--c-brand-50)}
-
-  .calc{grid-template-columns:1fr;gap:22px}
-  .calc__panel{position:static}
-  .calc__barra{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;align-items:center;
-               justify-content:space-between;gap:16px;padding:12px 18px;background:var(--c-ink);
-               color:var(--c-on-ink);box-shadow:var(--c-shadow-header)}
-    .calc__barra-g{display:inline-flex;align-items:center;justify-content:center;min-width:52px;
-                 height:34px;padding:0 12px;border-radius:8px;font-family:var(--c-font-display);font-size:19px;
-                 font-weight:600;color:var(--c-ink)}
-  .calc__barra-g--G3{background:var(--ecicep-g3)} .calc__barra-g--G2{background:var(--ecicep-g2)}
-  .calc__barra-g--G1{background:var(--ecicep-g1)} .calc__barra-g--G0{background:var(--ecicep-g0)}
-  .calc__barra-p{font-size:14px;font-weight:700;font-variant-numeric:tabular-nums}
-  
+/* ---------- phone ---------- */
+@container app (max-width:760px){
+  .app{grid-template-rows:auto auto minmax(0,1fr) auto}
+  .top{padding:10px 14px}
+  .top__h{font-size:16px}
+  .top__s{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:12px}
+  .top__t{flex:1}
+  .ayuda{font-size:12px}
+  .top__acc,.pie{display:none}
+  .franja{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--surface);border-bottom:1px solid var(--canvas-200);
+          cursor:pointer;border-left:0;border-right:0;border-top:0;width:100%;text-align:left}
+  .franja__g{display:grid;place-items:center;min-width:46px;height:36px;padding:0 8px;border-radius:9px;font-weight:800;font-size:17px;color:#101828;
+             background:var(--canvas-100);box-shadow:inset 0 0 0 2px #101828}
+  .franja__g--G0{background:var(--g0)} .franja__g--G1{background:var(--g1)} .franja__g--G2{background:var(--g2)} .franja__g--G3{background:var(--g3)}
+  .franja__g--vacio{box-shadow:inset 0 0 0 2px var(--canvas-200);color:var(--muted);font-size:14px}
+  .franja__t{font-size:13.5px;line-height:1.3;min-width:0}
+  .franja__t b{display:block;font-size:14.5px}
+  .franja__v{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--brand-700);white-space:nowrap}
+  .main{display:block;padding:0;overflow:auto}
+  .col{border:0;border-radius:0;background:none;overflow:visible}
+  .col--res,.col--cod{display:none}
+  .app[data-vista="resultado"] .col--ent,.app[data-vista="codigos"] .col--ent,.app[data-vista="ayuda"] .col--ent{display:none}
+  .app[data-vista="resultado"] .col--res{display:flex}
+  .app[data-vista="codigos"] .col--cod{display:flex;position:static;box-shadow:none;width:auto}
+  .app[data-vista="ayuda"] .vista-ayuda{display:block;padding:16px}
+  .col__hd{padding:14px 14px 0}
+  .cuerpo{padding:10px 14px 18px}
+  .inp{height:52px;font-size:17px}
+  .campo__fila .btn--pri{min-height:52px;padding:0 16px}
+  .chips{flex-wrap:nowrap;overflow-x:auto;margin:0 -14px;padding:2px 14px 6px;scrollbar-width:none}
+  .chip{min-height:40px;flex:none;font-size:14px}
+  .lista{flex:none;background:var(--surface)}
+  .lista__l{overflow:visible}
+  .fila{grid-template-columns:minmax(0,1fr) 34px 44px;grid-template-areas:"n p x" "c c c";row-gap:0;padding:10px 4px 10px 12px}
+  .fila__n{grid-area:n;font-size:15.5px} .fila__p{grid-area:p} .fila .x{grid-area:x;width:44px;height:44px}
+  .fila__c{grid-area:c;text-align:left}
+  .total{grid-template-columns:minmax(0,1fr) auto 34px 44px}
+  .res{overflow:visible;padding:14px}
+  .cod__l{overflow:visible}
+  .cod__f{position:sticky;top:0;background:var(--page);z-index:2;padding:12px 14px 8px}
+  .mas{width:44px;height:44px}
+  .cf__r{grid-template-columns:minmax(0,1fr) auto 44px}
+  .tabs{display:grid;grid-template-columns:repeat(4,1fr);background:var(--surface);border-top:1px solid var(--canvas-200);
+        padding-bottom:env(safe-area-inset-bottom,0px)}
+  .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;min-height:60px;border:0;background:none;
+       font-size:11.5px;font-weight:700;color:var(--muted);cursor:pointer;position:relative}
+  .tab svg{width:22px;height:22px}
+  .tab[aria-current="true"]{color:var(--brand-700)}
+  .tab[aria-current="true"]::before{content:"";position:absolute;top:0;left:22%;right:22%;height:3px;border-radius:0 0 3px 3px;background:var(--brand-700)}
+  .tab__n{position:absolute;top:6px;left:calc(50% + 6px);min-width:18px;height:18px;padding:0 5px;border-radius:9px;background:var(--brand-700);color:#fff;font-size:11px;display:grid;place-items:center}
+  .toast{bottom:76px}
+  .solo-medio,.solo-ancho{display:none}
 }
-
-/* ---- printing: health workers print and leave things in the box ---- */
-@media print{
-  .calc__acciones,.calc__campo,.calc__barra,.vig__pdf{display:none}
-  .calc{grid-template-columns:1fr}
-  .calc__panel{position:static}
-}
-
-
-/* ---- carried over: the parts of the original sheet whose markup survives -------
- * The suggestions dropdown, the two dialogs («Cómo se usa», «Listado de patologías»)
- * and the debug trace. Rewriting the sheet from the mockup dropped them and the
- * dialogs rendered in browser defaults — black on white, outside the palette.
- * Ported onto the live variables; the `--c-*` set is gone.
- */
-/* ---------- Suggestions ---------- */
-.aps-calc__sugerencias {
-  list-style: none; margin: 6px 0 0; padding: 0; position: absolute; z-index: 20;
-  left: 0; right: 0; overflow-y: auto;
-  /* Never taller than the room under the field: on a short laptop or a landscape phone
-     a fixed 300px runs off the bottom, and the last options are unreachable. */
-  max-height: min(300px, 42vh);
-  background: var(--c-surface); border: 1px solid var(--c-canvas-200);
-  border-radius: 12px; box-shadow: 0 12px 28px rgb(16 24 40 / 14%);
-}
-
-.aps-calc__sugerencias:empty { display: none; }
-
-.aps-calc__match {
-  font-style: normal; font-family: var(--c-font-body);
-  font-size: 13px; color: var(--c-brand-700); background: var(--c-brand-50);
-  padding: 1px 5px; border-radius: 6px; margin-left: 6px;
-}
-
-.aps-calc__sugerencias li {
-  display: flex; flex-direction: row; flex-wrap: nowrap; gap: 10px; align-items: baseline; justify-content: space-between;
-  margin: 0; padding: 10px 13px; min-height: 44px;
-  color: var(--c-ink); cursor: pointer;
-}
-
-.aps-calc__sugerencias li:hover,
-.aps-calc__sugerencias li[aria-selected="true"] { background: var(--c-brand-50); }
-
-/* The option is one hit target: its own spans must not swallow the click. */
-.aps-calc__sugerencias li > * { pointer-events: none; }
-
-.aps-calc__pje { flex: 0 0 auto; font-size: 13px; font-weight: 700; color: var(--c-muted); }
-
-
-/* Rows in the listing are buttons now: they read as text and act as controls. */
-.aps-calc__anadir {
-  padding: 0; border: 0; background: none; font: inherit; text-align: left;
-  color: var(--c-brand-700); cursor: pointer; text-decoration: underline;
-  text-decoration-color: var(--c-brand-300); text-underline-offset: 3px;
-  min-height: 44px;
-}
-
-.aps-calc__anadir:hover { text-decoration-color: var(--c-brand-600); }
-
-.aps-calc__anadir:focus-visible { outline: 3px solid var(--c-brand-600); outline-offset: 2px; }
-
-
-.aps-calc__deshacer {
-  margin-left: 6px; padding: 2px 8px; min-height: 32px;
-  border: 1.5px solid currentColor; border-radius: 999px;
-  background: none; color: inherit; font: inherit;
-  font-size: 13.5px; font-weight: 700; cursor: pointer;
-}
-
-.aps-calc__deshacer:focus-visible { outline: 3px solid var(--c-brand-600); outline-offset: 2px; }
-
-
-/* ---------- Overlays (tutorial and listing) ---------- */
-/* Native <dialog>: backdrop, focus trap and Escape all come from the browser. */
-
-.aps-calc__modal::backdrop { background: rgb(16 24 40 / 55%); }
-
-.aps-calc__modal h2 { margin: 0 24px 12px 0; font-size: 22px; }
-
-.aps-calc__modal h3 { margin: 20px 0 6px; font-size: 17px; }
-
-.aps-calc__modal ul, .aps-calc__modal ol { margin: 0; padding-left: 18px; }
-
-.aps-calc__modal li { margin-bottom: 6px; }
-
-.aps-calc__modal table { width: 100%; border-collapse: collapse; font-size: 15px; }
-
-.aps-calc__modal th, .aps-calc__modal td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--c-canvas-200); vertical-align: top; }
-
-
-
-
-/* Mismo fallo que .pat__x y la misma cura, que allí ya está escrita: el reset de
-   un reset (`button{text-align:inherit}`) borra el `text-align:center` del navegador, y
-   esta regla dibujaba el disco sin centrar nada por su cuenta. La × arrancaba en el
-   borde izquierdo de la caja — medidos 16,5px fuera del centro de un círculo de 40. */
-.aps-calc__modal-x button {
-  display: grid; place-items: center; padding: 0;
-  width: 40px; height: 40px; border: 0; border-radius: 50%; cursor: pointer;
-  font-size: 22px; line-height: 1; background: var(--c-canvas-100); color: var(--c-ink);
-}
-
-.aps-calc__modal-x button:focus-visible { outline: 3px solid var(--c-brand-600); outline-offset: 2px; }
-
-
-.aps-calc__pasos li { margin-bottom: 8px; }
-
-/* Los pips de la tabla «Cómo se usa» son la MISMA escala que la pirámide, así que
-   salen de --ecicep-g0..g3 y de ningún otro sitio. Antes eran cuatro hex escritos a
-   mano de la paleta de estados — verde, AZUL, marrón, granate — de modo que G1 era
-   azul aquí y amarillo tres párrafos más arriba. En una herramienta de
-   estratificación el color es el significado, y había dos escalas para una.
-   Ninguno de los cuatro era ya un token vigente: #0a5f96 no existe en 01-tokens.css
-   y #b00031 se había separado un dígito de --c-danger-text.
-
-   El anillo de tinta no es adorno. Medido sobre blanco, dos de los cuatro colores
-   oficiales no llegan al 3:1 que pide WCAG 1.4.11 para un objeto gráfico:
-
-       --ecicep-g0 #23af4c   2.87:1     --ecicep-g2 #e87232   3.05:1
-       --ecicep-g1 #f8f400   1.17:1     --ecicep-g3 #fc1a0e   3.97:1
-
-   Un cambio de color a secas dejaba un pip amarillo prácticamente invisible. El
-   anillo da la forma sin tocar el tono, y contra los cuatro rellenos mide entre
-   4.47:1 y 15.15:1. Es el mismo recurso que ya usa .res__sw unas líneas más arriba;
-   aquí va como inset para no alterar la caja. */
-.aps-calc__pip { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px;
-                 box-shadow: inset 0 0 0 1.5px var(--c-ink); }
-
-.aps-calc__pip--G0 { background: var(--ecicep-g0); }
-
-.aps-calc__pip--G1 { background: var(--ecicep-g1); }
-
-.aps-calc__pip--G2 { background: var(--ecicep-g2); }
-
-.aps-calc__pip--G3 { background: var(--ecicep-g3); }
-
-
-/* Horizontal scrolling lives HERE, never on the body: a wide table must not
-   push the whole page sideways on a phone. */
-
-
-
-.aps-calc__filtro { margin: 4px 0 8px; }
-
-.aps-calc__conteo { margin: 0 0 8px; color: var(--c-muted); font-size: 13.5px; }
-
-.aps-calc__codigos { font-family: var(--c-font-body); font-size: 13px; }
-
-
-/* ---------- Debug trace ---------- */
-.aps-calc__traza { margin-top: 20px; font-family: var(--c-font-body); font-size: 12.5px; }
-
-.aps-calc__traza table { width: 100%; border-collapse: collapse; }
-
-.aps-calc__traza th, .aps-calc__traza td { border: 1px solid var(--c-canvas-200); padding: 4px 6px; text-align: left; }
-
-/* ---- el diálogo del listado ---- */
-/* Narrower than the content demands is not possible, so the content demands less:
-   below 900px the row stacks and the dialog can be 560 instead of 720. */
-/* `display` only when open. An author rule beats the UA's
-   `dialog:not([open]){display:none}`, so an unconditional display:flex left the closed
-   dialog painted over the page — invisible, and swallowing every click behind it.
-   Same trap as `hidden` on a class that sets its own display. */
-.aps-calc__modal{
-  width:min(720px,calc(100vw - 48px));
-  max-height:min(86vh,760px);
-  padding:0;overflow:hidden;
-}
-.aps-calc__modal[open]{display:flex; flex-wrap: nowrap;flex-direction:column;
-                       align-items:stretch}
-
-/* Head stays, list scrolls. The filter is what you reach for when 52 rows do not fit,
-   and it used to scroll away with them. */
-.dlg__head{flex:none;padding:24px 24px 0;position:relative}
-.dlg__body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 24px 24px}
-.aps-calc__modal h2{margin:0 44px 8px 0}
-.aps-calc__modal-x{position:absolute;top:14px;right:14px;margin:0}
-
-.aps-calc__tabla{overflow-x:auto}
-.aps-calc__listado{min-width:0}
-.aps-calc__listado th,.aps-calc__listado td{padding:9px 10px}
-.aps-calc__listado thead th{position:sticky;top:0;background:var(--c-surface);z-index:1}
-
-@media (max-width:900px){
-  /* One row per condition instead of four columns: the name leads, its codes sit
-     underneath, the score stays on the right where it is scanned. Nothing scrolls
-     sideways, and the dialog no longer needs 720px to exist.
-     The N° goes: it is a row index, not a clinical fact, and next to the score it read
-     as a second number competing with it. */
-  .aps-calc__modal{width:min(560px,calc(100vw - 32px))}
-  .aps-calc__listado thead{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
-  .aps-calc__listado,.aps-calc__listado tbody,.aps-calc__listado tr,.aps-calc__listado td{display:block}
-  .aps-calc__listado tr{position:relative;padding:11px 40px 11px 0;border-bottom:1px solid var(--c-canvas-200)}
-  .aps-calc__listado tr:last-child{border-bottom:0}
-  .aps-calc__listado td{border:0;padding:0}
-  .aps-calc__listado td:first-child{display:none}
-  .aps-calc__listado td:nth-child(3){position:absolute;right:0;top:11px;font-size:15px;font-weight:700}
-  .aps-calc__listado td:nth-child(4){margin-top:3px;font-size:12.5px;color:var(--c-muted);line-height:1.5}
-  .aps-calc__anadir{font-size:15px;line-height:1.4}
-}
-
-/* ---- level glyph on an active band ----
- * The Marco Operativo sets black type on every level colour (Figura 8, pág. 74); the yellow G1
- * needs it most. */
-.pirB__g.is-activo{fill:#101828}
-
-/* The phone bar is fixed, so the page needs room under its last line to scroll clear of it. */
-@media (max-width:880px){ body:has(.calc__barra:not([hidden])) .pie{padding-bottom:96px} }

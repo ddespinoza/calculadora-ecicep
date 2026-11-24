@@ -4,11 +4,12 @@
 // ui.mjs guards its auto-start for node, so this suite imports the REAL module.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { interpretar, buscar, resolver } from '../motor.mjs';
+import { interpretar, buscar, resolver, evaluar } from '../motor.mjs';
 import { DATOS } from '../ecicep-codigos.mjs';
 import {
-  partirEntrada, planAgregar, escDe, codigosPorCondicion, codigosQueResuelven, filtrarListado,
+  partirEntrada, planAgregar, escDe, codigosPorCondicion, codigosQueResuelven, filtrarListado, FRECUENTES,
 } from '../site/ui.mjs';
+import { listado } from '../motor.mjs';
 
 const FILAS = codigosPorCondicion();
 
@@ -113,4 +114,20 @@ test('filtrarListado: a code inside a range rule finds its condition (C50 scores
     assert.deepEqual(filtrarListado(FILAS, cod).map((r) => r.fila.n), [38], `${cod} not found in the listing`);
   }
   assert.ok(!filtrarListado(FILAS, 'D49').some((r) => r.fila.n === 38), 'D49 is outside D00-D48');
+});
+
+test('every quick-add button adds exactly its own condition, unambiguously', () => {
+  assert.ok(FRECUENTES.length > 0);
+  const nombres = Object.fromEntries(listado().map((f) => [f.n, f.nombre]));
+  for (const [n, etiqueta] of FRECUENTES) {
+    assert.ok(nombres[n], `button «${etiqueta}» names condition ${n}, which does not exist`);
+    // The button pushes the condition's exact name straight to evaluar(), whose resolver()
+    // tries an exact name before any partial one. So «ERC» lands on 21 even though typing
+    // that same name as free text is ambiguous with 22 (it is a substring of «…avanzada»).
+    assert.equal(resolver(nombres[n]).condicion, n, `«${etiqueta}» adds ${nombres[n]}, which resolves elsewhere`);
+    const r = evaluar([nombres[n]]);
+    assert.equal(r.items[0].estado, 'ok');
+    assert.equal(r.items[0].condicion, n);
+  }
+  assert.equal(new Set(FRECUENTES.map(([n]) => n)).size, FRECUENTES.length, 'a condition has two buttons');
 });

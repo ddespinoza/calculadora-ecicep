@@ -19,8 +19,9 @@ ever moving a score.
 > in [`CHANGELOG.md`](CHANGELOG.md).
 
 **Use it:** <https://ddespinoza.github.io/calculadora-ecicep/>. Type the patient's confirmed
-conditions by name or CIE-10 code and read the risk group (G0–G3) and its strategy. Open «Listado de
-patologías y códigos CIE-10» to browse all 52 conditions and their 1001 codes with titles. It runs
+conditions by name or CIE-10 code, or tap one of the frequent ones, and read the risk group (G0–G3)
+and its strategy. On a computer everything is on one screen: the conditions, the result, and all 52
+conditions with their 1001 codes and titles. On a phone the same parts are four tabs. It runs
 entirely in the browser, keeps working offline after the first visit, and sends nothing anywhere.
 
 ## Where things are
