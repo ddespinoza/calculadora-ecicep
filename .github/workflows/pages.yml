@@ -1,0 +1,87 @@
+# Publishes the Calculator to GitHub Pages — ONLY when a GitHub Release is published.
+#
+# Pushing to main changes nothing the public sees: a clinician's answer changes on a deliberate,
+# named, dated release, never as a side effect of a merge (ADR-0002). The gate runs first and the
+# deploy needs it; a red gate publishes nothing.
+#
+# The deployed site is site/ plus the three engine modules, copied byte for byte by
+# scripts/build-site.mjs, which stamps the release tag into the footer and into the offline
+# cache's name. The same three modules are attached to the Release as assets.
+#
+# workflow_dispatch exists to re-deploy an existing tag (for example after Pages was off). It
+# must be run from that tag, so the version stamped is the code deployed.
+name: pages
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check engine and site
+        run: ./scripts/check.sh
+
+  build:
+    needs: gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Resolve the version
+        id: v
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [ -n "$TAG" ]; then v="$TAG"; else v="$(git describe --tags --exact-match)"; fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+      - name: Assemble the site
+        run: node scripts/build-site.mjs --version "${{ steps.v.outputs.version }}"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+  assets:
+    if: github.event_name == 'release'
+    needs: gate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Attach the engine modules to the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" motor.mjs ecicep-codigos.mjs ecicep-titulos.mjs --clobber

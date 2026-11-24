@@ -1,6 +1,7 @@
-# AGENTS.md — Calculadora ECICEP (the Engine)
+# AGENTS.md — Calculadora ECICEP (the Engine and the Calculator)
 
-GitHub: `APS-Conecta/calculadora-ecicep`. Default branch `main`. Licence AGPL-3.0-or-later.
+GitHub: `ddespinoza/calculadora-ecicep` (moved from `APS-Conecta`, which redirects). Default branch
+`main`. Licence AGPL-3.0-or-later. Published at <https://ddespinoza.github.io/calculadora-ecicep/>.
 
 This file holds the **project-specific** rules and is canonical for this repository. `CLAUDE.md` is a
 thin `@AGENTS.md` pointer — don't duplicate rules there. The vocabulary is in
@@ -8,7 +9,10 @@ thin `@AGENTS.md` pointer — don't duplicate rules there. The vocabulary is in
 ADRs under [`docs/adr/`](docs/adr/), each with a `Status:` field, never renumbered.
 
 This repository is the clinical engine and data of the ECICEP risk calculator, split out of the Site
-(`APS-Conecta/aps-conecta-web`) on 2026-08-27. It has no interface, no server and no build.
+(`APS-Conecta/aps-conecta-web`) on 2026-08-27, and, since 2026-11-24, the Calculator itself: the
+static page in `site/`, published to GitHub Pages on each release
+([ADR-0002](docs/adr/0002-the-calculator-lives-here-on-github-pages.md)). It has no server, no
+dependency and no bundler.
 
 **Language split:** code, comments, commits, issues and every document here are in **English**.
 Spanish appears only where it is data or user-facing: condition names, the CSV's column headers, and
@@ -52,25 +56,51 @@ pipeline puts them.
 
 ### 4. The exported names are a contract
 
-The Site **vendors** this engine: `motor.mjs` and `ecicep-codigos.mjs` are copied into its theme and
-pinned by hash, not pulled as a submodule or a package. A rename here is a silent break there, and
-that copy is the whole blast radius.
-
-The names it destructures: `evaluar`, `resolver`, `listado`, `buscar`, `interpretar`, `META`,
-`ETIQUETAS`, `DESCRIPCIONES`, `ESTRATEGIAS`. (`GRUPOS` is also exported.) Adding is safe; renaming,
-removing, or changing the shape a function returns is a breaking change and needs the Consumer
-updated in the same breath. `registro()` was removed on 2026-08-27 along with the Ingreso/Control
+The Consumer is `site/ui.mjs`, in this repository. It imports `evaluar`, `resolver`, `listado`,
+`buscar`, `interpretar`, `normalizar`, `META`, `ETIQUETAS` and `ESTRATEGIAS` from `motor.mjs`, `DATOS`
+from `ecicep-codigos.mjs` and `TITULOS` from `ecicep-titulos.mjs`. (`GRUPOS` and `DESCRIPCIONES` are
+also exported.) The same modules are attached to every release for anyone who copies them. Adding
+is safe; renaming, removing, or changing the shape a function returns is a breaking change and needs
+the Consumer updated in the same pull request. `tests/ui.test.mjs` imports the real `ui.mjs`, so a
+break shows up in the gate. Until 2026-11-24 the Consumer was the Site, which vendored the files by
+copy. `registro()` was removed on 2026-08-27 along with the Ingreso/Control
 control that fed it.
 
 ### 5. Run `./scripts/check.sh` before committing
 
-It runs the tests (`node --test 'tests/*.test.mjs'`) and the generated-file check
-(`node scripts/build-codigos.mjs --check`). Both must pass before a commit; CI is not the first place
+It runs the tests (`node --test 'tests/*.test.mjs'`, which include the interface's pure helpers and
+an assembly of the Pages site) and the generated-file check (`node scripts/build-codigos.mjs
+--check`, covering both generated modules). Both must pass before a commit; CI is not the first place
 a failure should appear, because there is no build step to catch a mistake later.
 
 The gate never skips: if Node is absent it **fails**, because a tier that skips itself is
 indistinguishable from a tier that checks nothing. Report what actually ran — never a check that was
 skipped as one that passed.
+
+### 6. The Calculator (`site/`) decides nothing, and shows only what the Engine would do
+
+`site/ui.mjs` is a DOM adapter. Every score, cut-off, label and strategy comes from `motor.mjs`.
+What the page *displays* is held to the same standard. A code printed beside a condition must
+resolve to that condition, which is why the listing filters through `resolver()` and why the Site's
+«N18 beside ERC avanzada» display did not survive the port (ADR-0002).
+
+- `site/motor.mjs`, `site/ecicep-codigos.mjs` and `site/ecicep-titulos.mjs` are **relative symlinks**
+  to the root files. Never replace them with copies. `scripts/build-site.mjs` refuses to assemble if
+  the deployed bytes differ from the root's.
+- The page changes for the public **only on a published GitHub Release** (`pages.yml`). Do not add a
+  deploy on push.
+- `_site/` is build output and is gitignored. Preview with `node scripts/build-site.mjs && python3 -m
+  http.server -d _site 8000`. A preview build reuses its version name, so bump `--version` or clear
+  the site's storage, or the service worker keeps serving the previous preview.
+- User-facing text is Spanish; code and comments are English.
+
+## Releasing
+
+1. Merge to `main` with the gate green, and add the version's entry to `CHANGELOG.md`.
+2. `gh release create vX.Y.Z --target main --title "vX.Y.Z" --notes-file <notes>`, using semver on
+   the exported surface: a rename is major, an addition minor, a fix patch.
+3. `pages.yml` runs the gate, deploys `_site/` and attaches the three engine modules. Check that the
+   footer of the live page shows the new tag.
 
 ## Who writes what
 
@@ -80,6 +110,8 @@ skipped as one that passed.
 | The 52 conditions, their points and their codes | `scripts/fuente/gen_codigos_ecicep.py`, hand-typed from Anexo 4 | → a 7-column TSV, consumed by the next step |
 | The shipped CSV | `scripts/fuente/gen_enriquecido.py`, joining the two above plus a hand-curated `MANUAL` table that supplies `N18.1`–`N18.6` (absent from the PAHO base) | → `datos/codigos_ecicep_estratificacion.csv` |
 | The importable table | `scripts/build-codigos.mjs` | → `ecicep-codigos.mjs` is **generated** and gets overwritten |
+| CIE-10 titles for display | `scripts/build-codigos.mjs`, from the CSV's `Nombre código (CIE-10)` | → `ecicep-titulos.mjs` is **generated**; nothing clinical reads it |
+| The page people use | `site/` (hand-written), assembled by `scripts/build-site.mjs` | → `_site/`, deployed only by `pages.yml` on a release |
 | Clinical rules — cut-offs, de-duplication, resolution order | `motor.mjs` | An interface decides nothing |
 
 Two things worth knowing before you trust a sentence about this pipeline. The Site's documentation

@@ -1,13 +1,14 @@
 # Calculadora ECICEP
 
-This repository is the **Engine** and the **Data** of the ECICEP risk calculator: the clinical rules
-that turn a list of chronic conditions into a risk group, and the code table those rules read. It
-contains no interface and renders nothing. It was split out of the Site
-(`APS-Conecta/aps-conecta-web`) on 2026-08-27; the interface stayed there.
+This repository is the **Engine** and the **Data** of the ECICEP risk calculator, which are the
+clinical rules that turn a list of chronic conditions into a risk group and the code table those
+rules read. Since 2026-11-24 it is also the **Calculator**, the page clinicians use, in `site/`. It
+was split out of the Site (`APS-Conecta/aps-conecta-web`) on 2026-08-27. The interface stayed there
+until 2026-11-24 and then moved here (ADR-0002).
 
 The vocabulary below is the one the code already speaks. Identifiers are Spanish where the domain is
 Spanish (`condicion`, `puntaje`, `resolver`), so each term names both forms — renaming an exported
-symbol would break the only Consumer.
+symbol would break the Consumer.
 
 ## Clinical model
 
@@ -129,16 +130,26 @@ ever moving a score. Its exported names are a contract with its Consumers.
 _Avoid_: library, core, service, calculator
 
 **Calculator**:
-The product a clinician uses: an interface plus this Engine. This repository is **not** the
-Calculator — nothing here opens in a browser on its own, and the Calculator lives on the Site, where
-it is a Resource rather than an App.
+The product a clinician uses, which is the interface in `site/` plus this Engine, published to
+GitHub Pages on each Release. It renders what the Engine decides and decides nothing itself. Until
+2026-11-24 it lived on the Site as a WordPress mu-plugin.
 _Avoid_: app, tool, widget, page
 
+**Release**:
+A published GitHub Release with a semver tag. It is the only event that changes the public
+Calculator. Merging to `main` does not. Its tag is printed in the page footer and names the offline
+cache.
+_Avoid_: deploy, version (a version is the tag; a release is the event)
+
+**Titles module** (`ecicep-titulos.mjs`):
+The CIE-10 title of every Code and Range rule, generated from the Data beside the Generated module
+and checked the same way. It is for display only: nothing that scores reads a title.
+_Avoid_: dictionary, names table
+
 **Consumer**:
-Anything that imports the Engine. Today there is exactly one: the Site, and it **vendors** the two
-files — `motor.mjs` and `ecicep-codigos.mjs` are copied into its theme and pinned by hash, not pulled
-as a submodule or a package. That copy is the blast radius of every breaking change made here, and
-the reason the exported surface it destructures (`evaluar`, `resolver`, `listado`, `buscar`,
-`interpretar`, `META`, `ETIQUETAS`, `DESCRIPCIONES`, `ESTRATEGIAS`) is a contract and not an
-implementation detail.
+Anything that imports the Engine. Today that is `site/ui.mjs`, in this repository, plus anyone who
+takes the modules attached to a Release. Until 2026-11-24 it was the Site, which **vendored**
+copies pinned by hash. The exported surface is a contract, not an implementation detail, because a
+rename breaks the Consumer: `evaluar`, `resolver`, `listado`, `buscar`, `interpretar`, `normalizar`,
+`META`, `ETIQUETAS`, `ESTRATEGIAS`.
 _Avoid_: client, dependency, integration, user (a user is a person)
