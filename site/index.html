@@ -10,6 +10,17 @@
 <link rel="apple-touch-icon" href="icon-192.png">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="calculadora.css?v=__VERSION__">
+<!-- Pins the engine modules to THIS release. ui.mjs imports ./motor.mjs, which imports
+     ./ecicep-codigos.mjs, by bare relative paths (so their bytes stay the committed ones);
+     the map gives each the release's ?v=, so a cache can never pair this page's interface
+     with another release's engine. Must precede every module script. -->
+<script type="importmap">
+{"imports": {
+  "./motor.mjs": "./motor.mjs?v=__VERSION__",
+  "./ecicep-codigos.mjs": "./ecicep-codigos.mjs?v=__VERSION__",
+  "./ecicep-titulos.mjs": "./ecicep-titulos.mjs?v=__VERSION__"
+}}
+</script>
 </head>
 <body>
 <div class="app">

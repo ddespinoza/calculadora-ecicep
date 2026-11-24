@@ -35,9 +35,11 @@ and they also need to look up which CIE-10 codes count for which condition.
    `scripts/build-codigos.mjs` from the CSV's `Nombre código (CIE-10)` column and held to the CSV by
    the same `--check`. Nothing clinical reads a title. Keeping them out of `DATOS` means adding the
    listing changed not one byte of `ecicep-codigos.mjs`.
-5. **The page works offline** through a service worker whose cache is named after the release. A new
-   release installs a new cache and deletes the old one, so a clinic machine never keeps an engine
-   from a superseded release once it has been online again.
+5. **The page works offline** through a service worker whose cache is named after the release. An
+   import map in `index.html` pins all three engine modules to the release (`?v=<tag>`) without
+   changing their bytes. A page from one release therefore never loads another release's engine,
+   neither from the cache nor during the switch to a new release. A new release installs a new
+   cache and deletes the old one.
 6. **Neutral presentation.** The page is called «Calculadora ECICEP», uses its own neutral palette with
    a dark scheme, loads no webfonts and has no analytics. Nothing a user types leaves the browser,
    which was the Site's ADR-0013 posture and is unchanged.

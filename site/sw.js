@@ -10,9 +10,11 @@ const ARCHIVOS = [
   './index.html',
   `./calculadora.css?v=${VERSION}`,
   `./ui.mjs?v=${VERSION}`,
-  './motor.mjs',
-  './ecicep-codigos.mjs',
-  './ecicep-titulos.mjs',
+  /* Versioned exactly as index.html's import map requests them: a release's interface only
+     ever loads that release's engine, from this cache or from the network. */
+  `./motor.mjs?v=${VERSION}`,
+  `./ecicep-codigos.mjs?v=${VERSION}`,
+  `./ecicep-titulos.mjs?v=${VERSION}`,
   './manifest.webmanifest',
   './icon.svg',
   './icon-192.png',
@@ -33,14 +35,16 @@ self.addEventListener('activate', (e) => {
     .then(() => self.clients.claim()));
 });
 
-/* Network first for the page, so an online visit sees a new release immediately; the
- * cached copy answers only when the network does not. Everything else is versioned or
- * pinned to this release, so cache first is exact. */
+/* Network first for the page, revalidated past the HTTP cache (Pages sends max-age=600),
+ * so an online visit sees a new release immediately; the cached copy answers only when the
+ * network does not. Every other request is versioned by the page that made it, so cache
+ * first is exact, and a miss (another release's URL) goes to the network. */
 self.addEventListener('fetch', (e) => {
   const req = e.request;
   if (req.method !== 'GET' || new URL(req.url).origin !== location.origin) return;
   if (req.mode === 'navigate') {
-    e.respondWith(fetch(req).catch(() => caches.match('./index.html', { cacheName: CACHE })));
+    e.respondWith(fetch(req.url, { cache: 'no-cache', credentials: 'same-origin' })
+      .catch(() => caches.match('./index.html', { cacheName: CACHE })));
     return;
   }
   e.respondWith(caches.match(req, { cacheName: CACHE }).then((hit) => hit ?? fetch(req)));

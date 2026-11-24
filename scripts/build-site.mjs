@@ -17,7 +17,7 @@
 import { cpSync, lstatSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 
 const raiz = join(dirname(fileURLToPath(import.meta.url)), '..');
 const arg = (nombre) => {
@@ -34,6 +34,12 @@ if (!version) {
 if (!/^[\w.+-]+$/.test(version)) throw new Error(`Versión no válida: ${version}`);
 
 const salida = resolve(arg('--out') ?? join(raiz, '_site'));
+/* The output is wiped first, so it must never be the checkout, an ancestor of it, or a
+   folder inside it other than _site/ — `--out .` or `--out site` would delete the source. */
+const dentro = (hijo, padre) => hijo === padre || hijo.startsWith(padre + sep);
+if (dentro(raiz, salida) || (dentro(salida, raiz) && salida !== join(raiz, '_site'))) {
+  throw new Error(`--out ${salida} borraría el repositorio; use _site/ o una carpeta fuera de él`);
+}
 rmSync(salida, { recursive: true, force: true });
 mkdirSync(salida, { recursive: true });
 

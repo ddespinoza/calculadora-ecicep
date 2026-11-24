@@ -26,6 +26,8 @@ concurrency:
 
 jobs:
   gate:
+    # A pre-release is for testers; it must not replace what clinicians see.
+    if: github.event_name != 'release' || !github.event.release.prerelease
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

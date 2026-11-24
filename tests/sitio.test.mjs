@@ -30,6 +30,13 @@ test('titles are the CSV\'s, spot-checked', () => {
   assert.equal(TITULOS['N18.4'], 'Enfermedad renal crónica, estadio 4');
 });
 
+test('build-site refuses an --out that would delete the checkout', () => {
+  for (const out of ['.', 'site', '..']) {
+    assert.throws(() => execFileSync('node', [join(raiz, 'scripts/build-site.mjs'), '--out', out], { cwd: raiz, stdio: 'pipe' }));
+  }
+  assert.ok(readdirSync(join(raiz, 'site')).includes('ui.mjs'), 'site/ survived');
+});
+
 test('the assembled site carries the engine unchanged and stamps the version everywhere', () => {
   const salida = mkdtempSync(join(tmpdir(), 'ecicep-sitio-'));
   try {
@@ -42,6 +49,13 @@ test('the assembled site carries the engine unchanged and stamps the version eve
     assert.ok(!index.includes('__VERSION__') && !sw.includes('__VERSION__'), 'an unstamped version marker shipped');
     assert.ok(index.includes('versión v9.9.9-test'));
     assert.ok(sw.includes("const VERSION = 'v9.9.9-test'"));
+    // The import map pins every engine module to the release, and the worker precaches exactly those URLs.
+    const mapa = JSON.parse(index.match(/<script type="importmap">([\s\S]*?)<\/script>/)[1]).imports;
+    for (const f of ['motor.mjs', 'ecicep-codigos.mjs', 'ecicep-titulos.mjs']) {
+      assert.equal(mapa[`./${f}`], `./${f}?v=v9.9.9-test`);
+      assert.ok(sw.includes(`\`./${f}?v=\${VERSION}\``), `sw.js does not precache the versioned ${f}`);
+    }
+    assert.ok(index.indexOf('type="importmap"') < index.indexOf('type="module"'), 'import map must precede the module');
     // Everything the service worker precaches must exist, or install fails and offline never arrives.
     const precache = [...sw.matchAll(/'\.\/([^'?]*)'|`\.\/([^`?]*)\?/g)].map((m) => m[1] ?? m[2]).filter(Boolean);
     const presentes = new Set(readdirSync(salida));

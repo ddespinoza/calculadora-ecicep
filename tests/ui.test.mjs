@@ -106,3 +106,11 @@ test('filtrarListado: by name, by code prefix, by CIE-10 title', () => {
   assert.equal(insulino[0].porNombre, false);
   assert.equal(filtrarListado(FILAS, 'zzzz').length, 0);
 });
+
+test('filtrarListado: a code inside a range rule finds its condition (C50 scores, so it must show)', () => {
+  for (const cod of ['C50', 'c34', 'C50.9', 'D05', 'D48', 'C97']) {
+    assert.equal(resolver(cod)?.condicion, 38, `${cod} should resolve to 38`);
+    assert.deepEqual(filtrarListado(FILAS, cod).map((r) => r.fila.n), [38], `${cod} not found in the listing`);
+  }
+  assert.ok(!filtrarListado(FILAS, 'D49').some((r) => r.fila.n === 38), 'D49 is outside D00-D48');
+});

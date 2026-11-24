@@ -37,7 +37,7 @@ const esc = (t) => String(t).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&l
  *   Diabetes mellitus  E10 E11 E12 E13 E14        ->  E10–E14
  *   Hipertensión       I10 I11 I12 I13            ->  I10–I13
  *   Anemia crónica     D50 D51 D52 D55…D64        ->  D50–D52 · D55–D64
- *   Tabaquismo         F17 T65 Z71 Z72            ->  F17 · T65 · Z71–Z72
+ *   Dificultades soc.  Z55…Z60 Z62 Z63 Z65        ->  Z55–Z60 · Z62–Z63 · Z65
  *
  * A condition can therefore show several ranges, several loose codes, or a mixture,
  * because that is what the Marco Operativo actually lists. The two range RULES the
@@ -156,6 +156,17 @@ export function codigosPorCondicion() {
   });
 }
 
+/* A typed code inside a range rule (C50, D05.1 inside C00-C97, D00-D48): the rule row has no
+ * prefix to match, so without this a cancer code found nothing in the listing although it
+ * scores. Same test as motor.mjs's porRegla: same letter, two-digit base inside the interval. */
+function enRegla(cod, regla) {
+  const r = regla.match(/^([A-Z])(\d{2})-([A-Z])(\d{2})$/);
+  const c = cod.split('.')[0].match(/^([A-Z])(\d{2})$/);
+  if (!r || !c || c[1] !== r[1]) return false;
+  const n = Number(c[2]);
+  return n >= Number(r[2]) && n <= Number(r[4]);
+}
+
 /* Filter for the listing: by condition name, by code prefix, or by CIE-10 title. Returns
  * the matching rows with the set of codes that matched, so the row can open and mark them. */
 export function filtrarListado(filas, texto) {
@@ -166,7 +177,8 @@ export function filtrarListado(filas, texto) {
   for (const fila of filas) {
     const porNombre = normalizar(fila.nombre).includes(q);
     const aciertos = new Set(fila.todos
-      .filter((c) => c.codigo.startsWith(cod) || (q.length >= 3 && normalizar(c.titulo).includes(q)))
+      .filter((c) => c.codigo.startsWith(cod) || enRegla(cod, c.codigo)
+        || (q.length >= 3 && normalizar(c.titulo).includes(q)))
       .map((c) => c.codigo));
     if (porNombre || aciertos.size) salida.push({ fila, aciertos, porNombre });
   }
