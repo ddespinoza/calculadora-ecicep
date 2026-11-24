@@ -1,6 +1,7 @@
-# Engine gate. There is no build step in this repository and no package.json — motor.mjs and
-# ecicep-codigos.mjs are copied straight into the Site's theme, pinned by hash — so nothing
-# stands between an edit here and the answer a clinician reads there.
+# Engine and Calculator gate, on every push and pull request. There is no bundler and no
+# package.json: motor.mjs and the generated modules are deployed byte for byte to GitHub Pages
+# on the next release (pages.yml), so nothing else stands between an edit here and the answer a
+# clinician reads.
 #
 # Everything is offline and dependency-free: the node test suite, the check that the generated
 # ecicep-codigos.mjs still matches the CSV, and a syntax check over the Python generators. No
@@ -14,10 +15,10 @@ name: motor
 
 on:
   pull_request:
-    paths: ["**.mjs", "datos/**", "tests/**", "scripts/**", ".github/workflows/motor.yml"]
+    paths: ["**.mjs", "site/**", "datos/**", "tests/**", "scripts/**", ".github/workflows/motor.yml"]
   push:
     branches: [main]
-    paths: ["**.mjs", "datos/**", "tests/**", "scripts/**", ".github/workflows/motor.yml"]
+    paths: ["**.mjs", "site/**", "datos/**", "tests/**", "scripts/**", ".github/workflows/motor.yml"]
 
 permissions:
   contents: read

@@ -2,7 +2,8 @@
 
 This repository is the clinical engine and the data of the ECICEP risk calculator: it turns a list of
 CIE-10 codes or pathology names into a weighted score and a risk group G0–G3, per Marco Operativo
-ECICEP 2025. It carries no interface. It was split out of `aps-conecta-web` on 2026-08-27, which is
+ECICEP 2025. The interface that draws it lives beside it in `site/` (ADR-0002), and this document is
+about the engine underneath. It was split out of `aps-conecta-web` on 2026-08-27, which is
 also the day its generators came under version control for the first time — until then they lived on
 a personal sync share, outside git, on one machine.
 
@@ -27,7 +28,8 @@ so — those rows are the ones that rot.
 | The accented display names for 25 of the 52 conditions | The `CON_TILDES` table in `scripts/build-codigos.mjs` | Display only. It asserts that stripping the accents reproduces the CSV name exactly, so a typo fails the build instead of shipping |
 | Cut-offs, dedup, first-match order, the refusal to guess on an ambiguous name | `motor.mjs` | No consumer decides anything clinical. An interface change cannot move a score |
 | CSV columns `Grupo`, `Código maestro`, `Nombre maestro (CIE-10)`, `Nombre código (CIE-10)`, `Nota` | `gen_enriquecido.py` writes them | **Nobody in this repository reads them.** `build-codigos.mjs` requires and consumes five columns only: `N°`, `Patología`, `Puntaje`, `Código CIE-10`, `Tipo`. The other five exist for the human reader and for the spreadsheet |
-| The copies of `motor.mjs` and `ecicep-codigos.mjs` in `aps-conecta-web`'s theme | **Nobody.** A person copies them across | They are byte-identical to this repository's today, and no script, test or gate in either repository checks that they stay so |
+| `ecicep-titulos.mjs` — the CIE-10 title of every code and rule | `scripts/build-codigos.mjs`, from the CSV's `Nombre código (CIE-10)` | **Generated**, display only, held by the same `--check`. Since 2026-11-24 this is the one column beyond the five that something reads: the Calculator's listing prints it |
+| The copies of the engine on GitHub Pages (`_site/`) | `scripts/build-site.mjs`, on a release, via `pages.yml` | It refuses to assemble unless each deployed module is byte-identical to the root. The Site's vendored copies, which nothing checked, were retired on 2026-11-24 |
 | CSV row order | `gen_codigos_ecicep.py`, implicitly: the token order is the PDF's order | Nobody may re-sort it — see *Row order is clinical* |
 
 ## Layers
@@ -55,7 +57,7 @@ ecicep-codigos.mjs                                 GENERATED · 1001 codes + 2 r
         ▼
 motor.mjs                                          pure domain: no DOM, no I/O, no dependencies
         ├──────────────► tests/*.test.mjs          node --test, no browser, milliseconds
-        └──────────────► aps-conecta-web           vendored copy inside its theme
+        └──────────────► site/ui.mjs               the Calculator, via symlinks; deployed on a release
 ```
 
 `motor.mjs` imports exactly one thing, `ecicep-codigos.mjs`, and nothing else. That is what lets the
@@ -64,11 +66,11 @@ clinical rules be tested in Node without a browser, and what makes the engine im
 
 ## The public surface
 
-The Site's `ui.mjs` destructures these. Renaming or removing one breaks the vendored copy silently,
-because nothing checks the two repositories against each other:
+`site/ui.mjs` imports these. Because it lives in this repository and `tests/ui.test.mjs` imports it,
+renaming or removing one fails the gate in the same pull request:
 
-`evaluar` · `resolver` · `interpretar` · `buscar` · `listado` · `META` · `ETIQUETAS` ·
-`DESCRIPCIONES` · `ESTRATEGIAS`
+`evaluar` · `resolver` · `interpretar` · `buscar` · `listado` · `normalizar` · `META` · `ETIQUETAS` ·
+`ESTRATEGIAS` (also exported: `GRUPOS`, `DESCRIPCIONES`)
 
 `GRUPOS` is exported too and is used by the tests. `registro()` was removed on 2026-08-27 together
 with the Ingreso/Control control it fed.
@@ -145,10 +147,12 @@ Never hand-edit `ecicep-codigos.mjs`. `node scripts/build-codigos.mjs --check` p
 when it does not, and `tests/datos.test.mjs` runs it as a test so a hand edit cannot pass the suite.
 
 All of it is wrapped by `./scripts/check.sh`, which is also the only thing this repository's CI
-runs. It has three tiers — the engine tests, the generated-file check, and a syntax check over
-`scripts/fuente/*.py` — and no tier skips itself: a missing `node` or `python3` is a failure, because
-a tier that skips is indistinguishable from a tier that checks nothing. The Site keeps its own
-`check.sh`, which additionally checks PHP, JSON and the Open Graph card; none of those exist here.
+runs. It has three tiers — the tests (engine, data, source, the interface helpers and the assembled
+site), the generated-file check, and a syntax check over `scripts/fuente/*.py` — and no tier skips
+itself: a missing `node` or `python3` is a failure, because a tier that skips is indistinguishable
+from a tier that checks nothing. It reads the test count from TAP output (`--test-reporter=tap`),
+because Node 24's default reporter prints `ℹ pass`, which the tier misread as zero tests until
+2026-11-24.
 
 ## Row order is clinical
 
@@ -216,10 +220,6 @@ Stated here because a gap nobody wrote down is indistinguishable from a decision
   writes to a hardcoded personal path, so `paho_titles.json` — 634 KB that names every code in the
   CSV — is a committed artefact whose writer nobody can execute. It is provenance, not a step. If
   the PAHO base ever needs to change, that script needs its inputs and its output path fixed first.
-- **Nothing keeps the vendored copies in step.** `aps-conecta-web` holds its own copies of
-  `motor.mjs` and `ecicep-codigos.mjs` inside its theme, and its own copies of the tests. They are
-  byte-identical to this repository's as of 2026-08-27, verified by hash, and staying that way
-  depends on a person remembering.
 - **Regenerating leaves an untracked file.** `gen_enriquecido.py` writes
   `codigos_ecicep_estratificacion.tsv` beside the CSV, and `.gitignore` does not cover it, so
   `git status` reports it after every run in place. Use `ECICEP_OUT` and it lands in the ignored

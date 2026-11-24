@@ -1,6 +1,6 @@
 # calculadora-ecicep
 
-The clinical **engine** and **data** of the ECICEP risk calculator: 52 chronic conditions, their
+The ECICEP risk calculator: its web page, its clinical **engine** and its **data**. That is 52 chronic conditions, their
 weights, and the 1001 CIE-10 codes that reach them, taken from *Marco Operativo ECICEP 2025*,
 Anexo 4, pp. 94-101.
 
@@ -8,16 +8,20 @@ Anexo 4, pp. 94-101.
 makes the clinical surface testable in Node in milliseconds, and what stops an interface change from
 ever moving a score.
 
-> **Status: in production through its only consumer, since 2026-08-27.** Split out that day from
-> [`APS-Conecta/aps-conecta-web`](https://github.com/APS-Conecta/aps-conecta-web) (the *Site*), which
-> serves the calculator and holds byte-identical copies of the two shipped files. `node --test
-> 'tests/*.test.mjs'` gives 23 passes and `node scripts/build-codigos.mjs --check` reports the
-> generated module in step with the CSV. The data pipeline in `scripts/fuente/` is runnable and
-> reproducible here for the first time — until this repository existed those generators lived on a
-> personal file-sync share under no version control, while the calculator's documentation told
-> maintainers to run them. There is no release process: nothing is tagged, nothing is published to a
-> registry, and the version of this code is the commit. Dated history is in
-> [`CHANGELOG.md`](CHANGELOG.md).
+> **Status (2026-11-24): the Calculator is published from here since v1.1.0.**
+> The engine was split out of [`APS-Conecta/aps-conecta-web`](https://github.com/APS-Conecta/aps-conecta-web)
+> (the *Site*) on 2026-08-27 and tagged `v1.0.0`. The Site's calculator page no longer exists, so its
+> interface was ported into [`site/`](site/index.html)
+> ([ADR-0002](docs/adr/0002-the-calculator-lives-here-on-github-pages.md)). The public page changes
+> **only when a GitHub Release is published**. `./scripts/check.sh` runs the whole gate: the engine,
+> the data, the data against the MINSAL PDF, the interface's pure helpers and the assembled site.
+> The data pipeline in `scripts/fuente/` reproduces the shipped CSV byte for byte. Dated history is
+> in [`CHANGELOG.md`](CHANGELOG.md).
+
+**Use it:** <https://ddespinoza.github.io/calculadora-ecicep/>. Type the patient's confirmed
+conditions by name or CIE-10 code and read the risk group (G0–G3) and its strategy. Open «Listado de
+patologías y códigos CIE-10» to browse all 52 conditions and their 1001 codes with titles. It runs
+entirely in the browser, keeps working offline after the first visit, and sends nothing anywhere.
 
 ## Where things are
 
@@ -25,10 +29,14 @@ ever moving a score.
 |---|---|
 | [`motor.mjs`](motor.mjs) | The clinical rules: resolution, dedup, score, cut-offs. Hand-written |
 | [`ecicep-codigos.mjs`](ecicep-codigos.mjs) | **Generated** by `scripts/build-codigos.mjs`. Never hand-edited — the check catches it |
+| [`ecicep-titulos.mjs`](ecicep-titulos.mjs) | **Generated** beside it: the CIE-10 title of every code, for display only |
+| [`site/`](site/index.html) | The Calculator: page, styles, `ui.mjs`, offline service worker. The three engine modules in it are symlinks to the root |
+| [`scripts/build-site.mjs`](scripts/build-site.mjs) | `site/` + engine → `_site/`, version stamped. Copies; bundles nothing |
+| [`.github/workflows/pages.yml`](.github/workflows/pages.yml) | Gate, then deploy to Pages, on a published Release only |
 | [`datos/codigos_ecicep_estratificacion.csv`](datos/codigos_ecicep_estratificacion.csv) | The clinical artifact of record: 10 columns, 1003 rows, CRLF |
 | [`scripts/build-codigos.mjs`](scripts/build-codigos.mjs) | CSV → ES module. Decides no score, corrects no code, reorders nothing |
 | [`scripts/fuente/`](scripts/fuente/gen_enriquecido.py) | The generators that produce the CSV |
-| [`tests/`](tests/motor.test.mjs) | Three tiers: the engine, the data, and the data against the MINSAL PDF |
+| [`tests/`](tests/motor.test.mjs) | The engine, the data, the data against the MINSAL PDF, the interface helpers, and the assembled site |
 | [`CHANGELOG.md`](CHANGELOG.md) | What changed, when, and whether it has reached anyone |
 
 ## What this is, and what it is not
@@ -37,9 +45,10 @@ It is the part of the calculator a clinician's result actually depends on: which
 resolves to, what it scores, and which group that adds up to. Everything here runs the same in a
 browser and in Node, because it touches neither.
 
-It is **not the calculator's interface**. The field, the listing panel, the Kaiser pyramid, the
-result card, the WordPress shortcode and every pixel a user sees belong to the Site, in its own
-`ui.mjs`. This repository draws nothing and decides nothing about presentation.
+The interface lives here too, in `site/`, and is kept apart from the engine. `site/ui.mjs` draws
+the field, the listing, the Kaiser pyramid and the result card, but every score, cut-off, label and
+strategy it shows comes from `motor.mjs`. What it shows is held to what the engine would do: a code
+printed beside a condition always resolves to that condition.
 
 It is **not a general CIE-10 library** either. It knows only the codes Anexo 4 assigns to the 52
 ECICEP conditions, plus two range rules (`C00-C97`, `D00-D48`). Anything outside that list resolves
@@ -79,15 +88,17 @@ travels with the number.
 
 Everything runs offline from the root of a checkout, with nothing installed.
 
-1. `node --test 'tests/*.test.mjs'` — the whole clinical surface. It ends in `# pass 23` and
-   `# fail 0`; anything else means a rule or a code moved. Verified on Node v22.23.0.
-2. `node scripts/build-codigos.mjs --check` — prints
-   `ecicep-codigos.mjs al dia (1001 codigos, 52 condiciones, 2 reglas)` and exits 0. A non-zero exit
-   means the generated module and the CSV disagree, which is how a hand-edit gets caught.
+1. `./scripts/check.sh` runs the whole gate and ends in `todo en orden`. Underneath it is
+   `node --test 'tests/*.test.mjs'` (40 tests, `# fail 0`; anything else means a rule, a code or the
+   page's contract moved) plus the generated-file check. Verified on Node v22 and v24.
+2. `node scripts/build-codigos.mjs --check` prints
+   `ecicep-codigos.mjs al dia (1001 codigos, 52 condiciones, 2 reglas)` and the same line for
+   `ecicep-titulos.mjs`, then exits 0. A non-zero exit means a generated module and the CSV disagree,
+   which is how a hand-edit gets caught.
 3. `node -e "import('./motor.mjs').then(m => console.log(m.evaluar(['E11','I10'])))"` — scores a
    case without a browser. Diabetes plus hypertension prints `puntaje: 3`, `grupo: 'G2'`.
 
-The three test tiers answer different questions.
+The test tiers answer different questions.
 [`tests/motor.test.mjs`](tests/motor.test.mjs) checks the engine against
 [`tests/golden.fixture.json`](tests/golden.fixture.json), whose cases marked `fuente: planilla` come
 from the spreadsheet's own recorded outputs. [`tests/datos.test.mjs`](tests/datos.test.mjs) checks
@@ -96,24 +107,30 @@ the spreadsheet's ÍNDICE tab, and that the generated module still matches the C
 [`tests/fuente.test.mjs`](tests/fuente.test.mjs) checks the data against the MINSAL PDF itself,
 through [`tests/anexo4-fuente.fixture.json`](tests/anexo4-fuente.fixture.json), which was extracted
 from Anexo 4 by a different route than the one that produces the CSV — so it compares two
-independent extractions rather than one with itself. The first test in each file asserts its fixture
-is not empty, because an empty fixture makes everything below it pass while checking nothing.
+independent extractions rather than one with itself. [`tests/ui.test.mjs`](tests/ui.test.mjs) holds
+the page's pure helpers: input splitting, the refusal to guess on an ambiguous name, escaping, and
+the rule that a listed code resolves to the condition it is listed under.
+[`tests/sitio.test.mjs`](tests/sitio.test.mjs) assembles the Pages site and checks that it carries
+the engine byte for byte, a title for every code, and every file the offline cache needs. The first
+test in each file asserts its fixture is not empty, because an empty fixture makes everything below
+it pass while checking nothing.
 
 ## Install — there is nothing to install
 
-No `package.json`, no dependencies, no build step, and nothing published to a registry. That is a
+No `package.json`, no dependencies, no bundler, and nothing published to a registry. That is a
 decision, not an omission: one `.mjs` file is importable by a browser and by `node --test` with
 nothing in between, and a bundler standing between the CSV and the clinician would be one more thing
 to trust.
 
-To consume it, copy two files into your tree, **side by side**:
+People use the Calculator at its Pages address, so they need nothing installed. To embed the
+engine elsewhere, take the files attached to a release and keep them **side by side**:
 
 - [`motor.mjs`](motor.mjs)
 - [`ecicep-codigos.mjs`](ecicep-codigos.mjs)
+- [`ecicep-titulos.mjs`](ecicep-titulos.mjs), only if you show CIE-10 titles
 
 `motor.mjs` imports `./ecicep-codigos.mjs` by relative path, so separating them breaks the import.
-Nothing else here ships: `datos/`, `scripts/` and `tests/` exist to produce and defend those two
-files, not to be deployed.
+`datos/`, `scripts/` and `tests/` exist to produce and defend these files and are not deployed.
 
 Requirements are whatever loads an ES module: any current browser, or Node — verified on v22.23.0.
 `motor.mjs` itself calls no Node API at all; only the build script and the tests do.
@@ -137,7 +154,8 @@ The public surface, one line each. The source is short and commented — read
 | `ESTRATEGIAS` | `{ G0…G3 }` | The principal strategy per level, from the founding ECICEP document |
 
 [`ecicep-codigos.mjs`](ecicep-codigos.mjs) additionally exports `DATOS` — `meta`, `condiciones`,
-`codigos` and `reglas` — which the Site reads directly.
+`codigos` and `reglas`, and [`ecicep-titulos.mjs`](ecicep-titulos.mjs) exports `TITULOS`, a map
+from each code to its CIE-10 title. `site/ui.mjs` reads both directly.
 
 Values and user-facing strings are Spanish, because the people reading them are; the code and every
 document around it is English.
@@ -148,22 +166,25 @@ document around it is English.
 boundary — which is to say it changes how often the person is seen. An exact code is never
 ambiguous; an ambiguous name is returned to the caller undecided.
 
-## Consumers
+## Consumers and releases
 
-One, today: **[`APS-Conecta/aps-conecta-web`](https://github.com/APS-Conecta/aps-conecta-web)**,
-which vendors `motor.mjs` and `ecicep-codigos.mjs` into its theme by copying them in — no submodule,
-no package, no import from this repository at runtime. Both copies are byte-identical to the files
-here today.
+The one Consumer is [`site/ui.mjs`](site/ui.mjs), in this repository. It imports `evaluar`,
+`resolver`, `listado`, `buscar`, `interpretar`, `normalizar`, `META`, `ETIQUETAS` and `ESTRATEGIAS`,
+plus `DATOS` and `TITULOS`. A rename breaks [`tests/ui.test.mjs`](tests/ui.test.mjs) in the same pull
+request, instead of breaking a vendored copy somewhere else. Until 2026-11-24 the Consumer was the
+Site, which copied the files into its theme. That copy was retired when the page moved here.
 
-That is the blast radius, and it cuts both ways:
+**A release is what changes the public page.** Publishing a GitHub Release runs
+[`pages.yml`](.github/workflows/pages.yml): it runs the gate, assembles `_site/` with the tag
+stamped into the footer and the offline cache name, deploys it to Pages, and attaches `motor.mjs`,
+`ecicep-codigos.mjs` and `ecicep-titulos.mjs` to the release for anyone who copies them. Merging to
+`main` changes nothing a clinician sees. The steps are in [`AGENTS.md`](AGENTS.md#releasing).
 
-- Its `ui.mjs` destructures `evaluar`, `resolver`, `listado`, `buscar`, `interpretar`, `META`,
-  `ETIQUETAS`, `DESCRIPCIONES` and `ESTRATEGIAS` at import time, and imports `DATOS` from the
-  generated module. Renaming or dropping one of those breaks the calculator page immediately.
-  (`registro()` was in that surface until 2026-08-27, when it was removed together with the
-  Ingreso/Control control it fed.)
-- Because the consumer holds copies, **nothing fixed here reaches anyone until someone copies it**.
-  A green test run in this repository is not evidence that production changed.
+To preview locally:
+
+```bash
+node scripts/build-site.mjs && python3 -m http.server -d _site 8000   # http://localhost:8000
+```
 
 ## Regenerating the data
 
