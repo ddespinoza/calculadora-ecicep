@@ -24,212 +24,130 @@
 </script>
 </head>
 <body>
-<div class="app">
+<div class="marco">
+<div class="app" id="app" data-vista="calcular">
 
-	<header class="top">
-		<p class="top__k">MINSAL · Marco Operativo ECICEP 2025</p>
-		<h1 class="top__h">Calculadora de riesgo ECICEP</h1>
-		<p class="top__p">Agregue las condiciones crónicas confirmadas de la persona —por nombre o por
-			código CIE-10— y obtenga su grupo de estratificación (G0 a G3) con la estrategia que le corresponde.</p>
-		<p class="top__red" id="estado-red" role="status"></p>
-	</header>
+  <header class="top">
+    <svg class="top__logo" viewBox="0 0 320 240" aria-hidden="true"><polygon points="160,2 211.5,78 108.5,78" fill="#fc1a0e"/><polygon points="105.8,82 214.2,82 248.1,132 71.9,132" fill="#e87232"/><polygon points="69.2,136 250.8,136 284.7,186 35.3,186" fill="#f8f400"/><polygon points="32.5,190 287.5,190 320,238 0,238" fill="#23af4c"/></svg>
+    <div class="top__t">
+      <h1 class="top__h">Calculadora de riesgo ECICEP</h1>
+      <p class="top__s">Marco Operativo ECICEP 2025 · MINSAL · Anexo 4 · 15 años y más</p>
+    </div>
+    <p class="top__red" id="estado-red" role="status" hidden></p>
+    <div class="top__acc">
+      <button type="button" class="btn solo-medio" id="abrir-cod"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Códigos CIE-10</button>
+      <button type="button" class="btn" id="abrir-ayuda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>Cómo se usa</button>
+    </div>
+  </header>
 
-	<main data-aps-calc>
+  <button type="button" class="franja" id="franja" aria-label="Ver resultado"></button>
 
-		<div class="calc">
-			<div class="calc__form">
-				<div class="calc__acciones">
-					<button type="button" class="calc__btn" data-abre="dlg-tutorial">
-						<span class="i i--help" aria-hidden="true"></span>Cómo se usa
-					</button>
-					<button type="button" class="calc__btn" data-abre="dlg-listado">
-						<span class="i i--list" aria-hidden="true"></span>Listado de patologías y códigos CIE-10
-					</button>
-					<button type="button" class="calc__btn calc__btn--limpiar" data-accion="limpiar" hidden>
-						<span class="i i--trash" aria-hidden="true"></span>Limpiar todo
-					</button>
-				</div>
+  <main class="main">
+    <section class="col col--ent" aria-labelledby="t-ent">
+      <div class="col__hd"><h2 class="col__t" id="t-ent">Condiciones de la persona</h2>
+        <button type="button" class="btn btn--sutil" id="limpiar" hidden>Limpiar todo</button></div>
+      <div class="cuerpo">
+        <div class="campo">
+          <label class="screen-reader-text" for="inp">Agregar patología o código CIE-10</label>
+          <div class="campo__fila">
+            <input class="inp" id="inp" placeholder="Nombre o código, ej.: E11" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="sug">
+            <button type="button" class="btn btn--pri" id="agregar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Agregar</button>
+          </div>
+          <ul class="sug" id="sug" role="listbox" hidden></ul>
+        </div>
+        <p class="ayuda">Varias a la vez separadas por coma. Los subcódigos suman como su maestro (E11.9 = E11).</p>
+        <div class="amb" id="amb" role="alert" hidden></div>
+        <div>
+          <p class="chips__t">Frecuentes en APS — toque para agregar o quitar</p>
+          <div class="chips" id="chips"></div>
+        </div>
+        <div class="lista" id="lista">
+          <div class="lista__l" id="filas" role="list" aria-label="Patologías agregadas"></div>
+          <div class="total" id="total" hidden></div>
+        </div>
+      </div>
+    </section>
 
-				<div class="calc__campo">
-					<label class="calc__label" for="calc-input">Agregar patología o código CIE-10</label>
-					<input type="text" id="calc-input" class="calc__input"
-					       placeholder="ej.: E11, hipertensión, N18.4" autocomplete="off"
-					       role="combobox" aria-expanded="false" aria-controls="calc-sugerencias"
-					       aria-describedby="calc-ayuda">
-					<ul class="aps-calc__sugerencias" id="calc-sugerencias" role="listbox"
-					    aria-label="Patologías sugeridas"></ul>
-					<p class="calc__ayuda" id="calc-ayuda">Escriba el nombre o el código. Separe varios con coma y pulse Enter.</p>
-				</div>
+    <section class="col col--res" aria-labelledby="t-res">
+      <div class="col__hd"><h2 class="col__t" id="t-res">Resultado</h2></div>
+      <div class="res" role="status" aria-live="polite">
+        <div class="grupo" id="grupo"></div>
+        <div class="pir">
+          <svg viewBox="0 0 320 240" role="img" aria-labelledby="pir-t"><title id="pir-t">Estratificación ECICEP: sin calcular</title>
+            <polygon class="n-G3" data-n="G3" points="160,2 211.5,78 108.5,78"/>
+            <polygon class="n-G2" data-n="G2" points="105.8,82 214.2,82 248.1,132 71.9,132"/>
+            <polygon class="n-G1" data-n="G1" points="69.2,136 250.8,136 284.7,186 35.3,186"/>
+            <polygon class="n-G0" data-n="G0" points="32.5,190 287.5,190 320,238 0,238"/>
+            <text data-n="G3" x="160" y="66">G3</text><text data-n="G2" x="160" y="116">G2</text>
+            <text data-n="G1" x="160" y="170">G1</text><text data-n="G0" x="160" y="223">G0</text>
+          </svg>
+          <div class="ley">
+            <div data-n="G3"><b>G3</b><span>Alto</span><span>5 o más</span></div>
+            <div data-n="G2"><b>G2</b><span>Moderado</span><span>2 a 4</span></div>
+            <div data-n="G1"><b>G1</b><span>Bajo</span><span>1</span></div>
+            <div data-n="G0"><b>G0</b><span>Sin riesgo</span><span>0</span></div>
+          </div>
+        </div>
+        <div class="est" id="est"></div>
+        <div class="verif"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01"/></svg>
+          <p><b>Verifique el resultado.</b> Es una ayuda de cálculo, no un diagnóstico: sólo cuentan los diagnósticos confirmados en la ficha.</p></div>
+      </div>
+    </section>
 
-				<p class="calc__aviso alert alert--warn" role="alert" hidden></p>
+    <section class="col col--cod" aria-labelledby="t-cod">
+      <div class="col__hd"><h2 class="col__t" id="t-cod">Patologías y códigos CIE-10</h2>
+        <button type="button" class="btn btn--sutil solo-medio" id="cerrar-cod">Cerrar</button></div>
+      <div class="cod">
+        <div class="cod__f">
+          <input class="inp" id="filtro" placeholder="Buscar por nombre, código o título — ej.: renal, C50" autocomplete="off" aria-label="Buscar en el listado">
+          <p class="cod__n" id="conteo"></p>
+        </div>
+        <div class="cod__l" id="codl"></div>
+      </div>
+    </section>
 
-				<div class="pat" hidden>
-					<div class="pat__hd" aria-hidden="true">
-						<span>Patología</span><span class="pat__c">Código</span><span>Puntos</span><span></span>
-					</div>
-					<div class="pat__l" role="list" aria-label="Patologías agregadas"></div>
-					<div class="pat__tot"></div>
-				</div>
+    <section class="vista-ayuda ayu" id="vayuda"></section>
+  </main>
 
-				<div class="calc__vacio">
-					<span class="calc__vacio-i i i--calculator" aria-hidden="true"></span>
-					<p class="calc__vacio-t">Agregue las condiciones del paciente</p>
-					<p class="calc__vacio-d">Escriba arriba un diagnóstico confirmado o su código CIE-10.
-						El grupo aparece en cuanto agregue el primero.</p>
-				</div>
-			</div>
+  <footer class="pie">
+    <span>Fuente: Marco Operativo ECICEP 2025, MINSAL, Anexo 4 (págs. 94–101)</span>
+    <span>Se calcula en su navegador: nada sale de este equipo · funciona sin conexión</span>
+    <span>Dr. Daniel Espinoza Charrier</span>
+    <span class="pie__v">versión __VERSION__ · <a href="https://github.com/ddespinoza/calculadora-ecicep">código fuente (AGPL-3.0)</a></span>
+  </footer>
 
-			<aside class="calc__panel">
-				<!-- The pyramid and its colours are the Marco Operativo's own iconography
-				     (Figura 8, pág. 74), not a design choice. -->
-				<div class="pirB">
-					<p class="pirB__t">Puntaje ponderado</p>
-					<svg class="pirB__svg" viewBox="0 0 320 240" role="img" aria-labelledby="tit-pir">
-						<title id="tit-pir">Estratificación ECICEP: sin calcular</title>
-						<polygon class="pirB__n pirB__n--G3" data-nivel="G3" points="160,2 211.5,78 108.5,78"/>
-						<polygon class="pirB__n pirB__n--G2" data-nivel="G2" points="105.8,82 214.2,82 248.1,132 71.9,132"/>
-						<polygon class="pirB__n pirB__n--G1" data-nivel="G1" points="69.2,136 250.8,136 284.7,186 35.3,186"/>
-						<polygon class="pirB__n pirB__n--G0" data-nivel="G0" points="32.5,190 287.5,190 320,238 0,238"/>
-						<text class="pirB__g pirB__g--G3" data-nivel="G3" x="160" y="66">G3</text>
-						<text class="pirB__g pirB__g--G2" data-nivel="G2" x="160" y="116">G2</text>
-						<text class="pirB__g pirB__g--G1" data-nivel="G1" x="160" y="170">G1</text>
-						<text class="pirB__g pirB__g--G0" data-nivel="G0" x="160" y="223">G0</text>
-					</svg>
-					<div class="pirB__leyenda">
-						<div class="pirB__fila pirB__fila--G3" data-nivel="G3">
-							<span class="pirB__k"><span class="pirB__sw pirB__sw--G3" aria-hidden="true"></span>G3</span>
-							<span data-etiqueta>Alto</span><span class="pirB__v">5 o más</span>
-						</div>
-						<div class="pirB__fila pirB__fila--G2" data-nivel="G2">
-							<span class="pirB__k"><span class="pirB__sw pirB__sw--G2" aria-hidden="true"></span>G2</span>
-							<span data-etiqueta>Moderado</span><span class="pirB__v">2 a 4</span>
-						</div>
-						<div class="pirB__fila pirB__fila--G1" data-nivel="G1">
-							<span class="pirB__k"><span class="pirB__sw pirB__sw--G1" aria-hidden="true"></span>G1</span>
-							<span data-etiqueta>Bajo</span><span class="pirB__v">1</span>
-						</div>
-						<div class="pirB__fila pirB__fila--G0" data-nivel="G0">
-							<span class="pirB__k"><span class="pirB__sw pirB__sw--G0" aria-hidden="true"></span>G0</span>
-							<span data-etiqueta>Sin riesgo</span><span class="pirB__v">0</span>
-						</div>
-					</div>
-				</div>
+  <nav class="tabs" aria-label="Secciones">
+    <button type="button" class="tab" data-vista="calcular" aria-current="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Calcular<span class="tab__n" id="tabn" hidden></span></button>
+    <button type="button" class="tab" data-vista="resultado"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3 2 20h20z"/><path d="M6 14h12M9 9h6"/></svg>Resultado</button>
+    <button type="button" class="tab" data-vista="codigos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>Códigos</button>
+    <button type="button" class="tab" data-vista="ayuda"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3M12 17h.01"/></svg>Ayuda</button>
+  </nav>
 
-				<div class="res" role="status" aria-live="polite" aria-busy="true"></div>
-			</aside>
-		</div>
-
-		<div class="vig">
-			<span class="vig__badge">Vigente</span>
-			<p class="vig__t"><b>Marco Operativo ECICEP</b> · MINSAL, 2025 · Anexo 4, págs. 94–101 ·
-				15 años y más.</p>
-		</div>
-
-		<div class="calc__decl">
-			<div class="alert alert--warn">
-				<span class="i i--triangle-alert" aria-hidden="true"></span>
-				<p><b>Verifique el resultado.</b> Es una ayuda de cálculo, no un diagnóstico: sólo cuentan
-					los diagnósticos confirmados en la ficha, y la estratificación cambia cuando se
-					confirma uno nuevo.</p>
-			</div>
-		</div>
-
-		<dialog class="aps-calc__modal" id="dlg-tutorial" aria-labelledby="tit-tutorial">
-			<div class="dlg__head">
-				<form method="dialog" class="aps-calc__modal-x"><button aria-label="Cerrar">×</button></form>
-				<h2 id="tit-tutorial">Cómo se usa</h2>
-			</div>
-			<div class="dlg__body">
-
-			<ol class="aps-calc__pasos">
-				<li><b>Escriba</b> el nombre de la patología o su código CIE-10 y pulse Enter.
-					Puede poner varias separadas por coma.</li>
-				<li><b>Revise</b> la lista: cada fila muestra cuánto suma esa patología.</li>
-				<li><b>Lea</b> el grupo de riesgo y la estrategia que le corresponde.</li>
-			</ol>
-
-			<h3>Qué significa el resultado</h3>
-			<div class="aps-calc__tabla">
-				<table>
-					<thead><tr><th>Grupo</th><th>Puntaje</th><th>Significa</th></tr></thead>
-					<tbody>
-						<tr><td><span class="aps-calc__pip aps-calc__pip--G0"></span> G0</td><td>0</td><td>Sin condiciones crónicas identificadas</td></tr>
-						<tr><td><span class="aps-calc__pip aps-calc__pip--G1"></span> G1</td><td>1</td><td>Riesgo bajo</td></tr>
-						<tr><td><span class="aps-calc__pip aps-calc__pip--G2"></span> G2</td><td>2 a 4</td><td>Riesgo moderado · multimorbilidad</td></tr>
-						<tr><td><span class="aps-calc__pip aps-calc__pip--G3"></span> G3</td><td>5 o más</td><td>Riesgo alto</td></tr>
-					</tbody>
-				</table>
-			</div>
-
-			<h3>Cómo se cuenta</h3>
-			<ul>
-				<li>La mayoría de las patologías suma <b>1 punto</b>. Ocho suman <b>2</b>, por su impacto
-					y por los cuidados que exigen: demencia, depresión grave, diabetes, ACV, enfermedad
-					renal crónica avanzada, enfermedad cardiovascular/IAM, esquizofrenia y dependencia.</li>
-				<li>Cada patología cuenta <b>una sola vez</b>. Si la repite, aparece marcada «repetida».</li>
-				<li>Los <b>subcódigos suman igual que el maestro</b>: E11 = E11.9 = Diabetes.
-					Excepción: N18.4, N18.5 y N18.6 son enfermedad renal crónica <b>avanzada</b> (2 puntos),
-					mientras que N18 es enfermedad renal crónica (1 punto).</li>
-				<li>Si un nombre coincide con más de una patología (por ejemplo «renal»), la calculadora
-					<b>no elige</b>: le muestra las opciones para que usted decida.</li>
-				<li>Un código fuera del listado oficial queda marcado en naranjo y <b>no suma</b>.</li>
-			</ul>
-
-			<h3>Ejemplos</h3>
-			<div class="aps-calc__tabla">
-				<table>
-					<thead><tr><th>Escribe</th><th>Resuelve</th><th>Puntaje</th></tr></thead>
-					<tbody>
-						<tr><td>E11</td><td>Diabetes mellitus</td><td>2</td></tr>
-						<tr><td>N18.4</td><td>Enfermedad renal crónica avanzada</td><td>2</td></tr>
-						<tr><td>I10</td><td>Hipertensión</td><td>1</td></tr>
-						<tr><td>renal</td><td>Le pide elegir: crónica (1) o avanzada (2)</td><td>—</td></tr>
-					</tbody>
-				</table>
-			</div>
-			</div>
-		</dialog>
-
-		<dialog class="aps-calc__modal" id="dlg-listado" aria-labelledby="tit-listado">
-			<div class="dlg__head">
-				<form method="dialog" class="aps-calc__modal-x"><button aria-label="Cerrar">×</button></form>
-				<h2 id="tit-listado">Listado de patologías ECICEP</h2>
-				<p class="calc__ayuda">Las 52 condiciones que considera la estratificación, con su
-					puntaje y todos sus códigos CIE-10. Pulse un nombre para agregarlo al cálculo.
-					Fuente: Marco Operativo ECICEP 2025, Anexo 4 (págs. 94–101), Ministerio de Salud de Chile.</p>
-				<label class="screen-reader-text" for="filtro-listado">Filtrar patologías</label>
-				<input type="text" id="filtro-listado" class="calc__input aps-calc__filtro"
-					placeholder="Filtrar por nombre, código o título CIE-10 — ej.: renal, E11, insulino" autocomplete="off">
-				<p class="aps-calc__conteo" aria-live="polite"></p>
-			</div>
-			<div class="dlg__body">
-				<div class="aps-calc__tabla">
-					<table class="aps-calc__listado">
-						<thead><tr><th>N°</th><th>Patología</th><th>Puntaje</th><th>Códigos CIE-10</th></tr></thead>
-						<tbody></tbody>
-					</table>
-				</div>
-			</div>
-		</dialog>
-
-		<!-- Phone only (CSS shows it under 880px): the group stays on screen while the list grows. -->
-		<div class="calc__barra" aria-hidden="true" hidden>
-			<span class="calc__barra-p"></span><span class="calc__barra-g"></span>
-		</div>
-
-		<section class="aps-calc__traza" hidden></section>
-	</main>
-
-	<footer class="pie">
-		<p><b>Se calcula en su navegador.</b> Nada de lo que escribe sale de este equipo: no hay servidor,
-			ni registro, ni analítica. Después de la primera visita funciona también sin conexión.</p>
-		<p>Fuente clínica: Marco Operativo ECICEP 2025, MINSAL, Anexo 4 (págs. 94–101). Títulos CIE-10:
-			OPS, Clasificación Internacional de Enfermedades, 10.ª revisión, Vol. 1.
-			Es una ayuda de cálculo y no reemplaza el juicio clínico.</p>
-		<p>Dr. Daniel Espinoza Charrier · <span class="pie__v">versión __VERSION__</span> ·
-			<a href="https://github.com/ddespinoza/calculadora-ecicep">código fuente (AGPL-3.0)</a></p>
-	</footer>
+  <div class="toast" id="toast" hidden></div>
 </div>
+</div>
+
+<dialog id="dlg-ayuda" aria-labelledby="t-ayu"><h2 id="t-ayu">Cómo se usa</h2><div class="ayu" id="dayuda"></div>
+  <form method="dialog" style="margin-top:14px;text-align:right"><button class="btn btn--pri">Entendido</button></form></dialog>
+
+<template id="tpl-ayuda">
+  <ol><li><b>Escriba</b> el nombre o el código CIE-10 y pulse Agregar (o Enter). Puede poner varias separadas por coma.</li>
+    <li>O toque una de las <b>frecuentes</b>, o el <b>+</b> en el listado de códigos.</li>
+    <li><b>Lea</b> el grupo y la estrategia que le corresponde.</li></ol>
+  <h3>Qué significa el resultado</h3>
+  <table><tr><th>Grupo</th><th>Puntaje</th><th>Significa</th></tr>
+    <tr><td><span class="pip" style="background:var(--g0)"></span>G0</td><td>0</td><td>Sin condiciones crónicas identificadas</td></tr>
+    <tr><td><span class="pip" style="background:var(--g1)"></span>G1</td><td>1</td><td>Riesgo bajo</td></tr>
+    <tr><td><span class="pip" style="background:var(--g2)"></span>G2</td><td>2 a 4</td><td>Riesgo moderado · multimorbilidad</td></tr>
+    <tr><td><span class="pip" style="background:var(--g3)"></span>G3</td><td>5 o más</td><td>Riesgo alto</td></tr></table>
+  <h3>Cómo se cuenta</h3>
+  <ul><li>La mayoría suma <b>1 punto</b>; ocho suman <b>2</b>: demencia, depresión grave, diabetes, ACV, ERC avanzada, enfermedad cardiovascular/IAM, esquizofrenia y dependencia.</li>
+    <li>Cada patología cuenta <b>una sola vez</b>; si se repite aparece «repetida».</li>
+    <li>N18.4, N18.5 y N18.6 son ERC <b>avanzada</b> (2 puntos); N18 es ERC (1 punto).</li>
+    <li>Si un nombre coincide con más de una patología (ej. «renal»), la calculadora <b>no elige</b>: le muestra las opciones.</li>
+    <li>Un código fuera del listado oficial queda en naranjo y <b>no suma</b>.</li></ul>
+</template>
+
 <script type="module" src="ui.mjs?v=__VERSION__"></script>
 </body>
 </html>

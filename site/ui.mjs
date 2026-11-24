@@ -185,386 +185,233 @@ export function filtrarListado(filas, texto) {
   return salida;
 }
 
-export function iniciar(raiz) {
-  if (!raiz) return null;
-  const entradas = [];
-  const depurar = new URLSearchParams(location.search).get('debug') === '1';
+/*
+ * The quick-add buttons («Frecuentes en APS»): conditions common in primary care, by
+ * their Anexo 4 number, with a short label. A button adds the condition by its EXACT
+ * name, which resolver() matches before any partial match, so a button can never land on
+ * a neighbour (tests/ui.test.mjs pins it). Approved by the owner on 2026-11-24.
+ */
+export const FRECUENTES = [
+  [32, 'Hipertensión'], [14, 'Diabetes'], [16, 'Dislipidemia'], [41, 'Obesidad'],
+  [7, 'Artrosis'], [12, 'Depresión leve/mod.'], [34, 'Tiroides'], [8, 'Asma'],
+  [20, 'EPOC'], [2, 'Tabaquismo'], [47, 'Ansiedad'], [21, 'ERC'],
+];
 
-  const input       = $('.calc__input', raiz);
-  const sugerencias = $('.aps-calc__sugerencias', raiz);
-  const lista       = $('.pat', raiz);      // the whole table shell
-  const filas       = $('.pat__l', raiz);               // its rows
-  const total       = $('.pat__tot', raiz);
-  const vacio       = $('.calc__vacio', raiz);
-  const resultado   = $('.res', raiz);
-  const traza       = $('.aps-calc__traza', raiz);
-  const btnLimpiar  = $('[data-accion="limpiar"]', raiz);
-  const aviso       = $('.calc__aviso', raiz);
-  const piramide    = $('.pirB__svg', raiz);
-  const riel        = $('.pirB__leyenda', raiz);
-  const barra       = $('.calc__barra', raiz);
+const RANGO = { G0: 0, G1: 1, G2: 2, G3: 3 };
+const plural = (n, s, p = `${s}s`) => `${n} ${n === 1 ? s : p}`;
+
+/*
+ * One screen (v1.2.0). Desktop shows three columns at once — the person's conditions,
+ * the result, and the code browser — inside the viewport, each scrolling on its own.
+ * Under 1120px the code browser becomes a panel; under 760px the page becomes four tabs
+ * with the result kept in a strip at the top. The layout is CSS container queries on
+ * .marco; this function only switches `data-vista` and paints.
+ */
+export function iniciar(app) {
+  if (!app) return null;
+  const entradas = [];
+  const NOMBRE = Object.fromEntries(listado().map((f) => [f.n, f]));
+  const FILAS = codigosPorCondicion();
+  const inp = $('#inp', app);
+  const sug = $('#sug', app);
+  const amb = $('#amb', app);
   let marcada = -1;
 
-  /* The list is capped by the room actually under the field, not by a fixed number.
-     A constant (300px, or 42vh) runs off the bottom on a short laptop, on a landscape
-     phone, and on any phone once the on-screen keyboard takes half the window —
-     visualViewport is what reports that, and it is the only thing that knows. */
-  const ALTO_MINIMO = 150;
-  function espacioBajoElCampo() {
-    const vv = window.visualViewport;
-    const alto = vv ? vv.height + vv.offsetTop : window.innerHeight;
-    return alto - input.getBoundingClientRect().bottom - 16;
-  }
-  function ajustarAlto() {
-    let bajo = espacioBajoElCampo();
-    /* On a 320x568 screen the field lands exactly on the bottom edge: there is no room
-       at all, and the whole list opens off-screen. Shrinking it does not help — bring
-       the field up instead. Self-limiting: once there is room, this stops firing. */
-    if (bajo < ALTO_MINIMO) {
-      /* Clamped so the field itself never scrolls off the top. */
-      const techo = 8;
-      const holgura = Math.max(0, input.getBoundingClientRect().top - techo);
-      window.scrollBy({ top: Math.min(ALTO_MINIMO - bajo, holgura), behavior: 'instant' });
-      bajo = espacioBajoElCampo();
-    }
-    sugerencias.style.maxHeight = Math.max(120, Math.min(300, bajo)) + 'px';
-  }
-  window.visualViewport?.addEventListener('resize', ajustarAlto);
-  window.addEventListener('resize', ajustarAlto);
-
-  /* ---------- suggestions ---------- */
-  function sugerir() {
-    /* Focusing with no text drops the full 52: the list is browsable, not an
-       autocomplete that makes you guess the name first. */
-    const crudo = input.value.split(',').pop().trim();
-    marcada = -1;
-    const halladas = buscar(crudo).slice(0, 60);
-    /* The option IS the <li>. It used to wrap a <button>, which is invalid ARIA
-       (an option may not contain interactive descendants) and put 52 stops in
-       the tab order. Ids exist so aria-activedescendant can point at one. */
-    sugerencias.innerHTML = halladas.map((c, i) => `
-      <li role="option" id="calc-op-${c.n}" data-nombre="${esc(c.nombre)}" data-codigo="${esc(c.coincide ?? '')}" aria-selected="${i === marcada}">
-        <span>${esc(c.nombre)}${c.coincide ? ` <em class="aps-calc__match">${esc(c.coincide)}</em>` : ''}</span>
-        <span class="aps-calc__pje">${c.puntaje} pt${c.puntaje > 1 ? 's' : ''}</span>
-      </li>`).join('');
-    ajustarAlto();
-    input.setAttribute('aria-expanded', String(halladas.length > 0));
-    input.removeAttribute('aria-activedescendant');
-  }
-
-  /*
-   * What to send to the engine when an option is chosen.
-   *
-   * buscar() already reports WHICH code matched, as `coincide`, and the dropdown
-   * has always shown it — type «E11» and the option reads «Diabetes mellitus E11».
-   * Both selection paths then threw it away and sent the NAME, so evaluar() had to
-   * re-resolve by name and returned codigo:null, and the results table fell back to
-   * the first code of the group: «E10». E10 is type 1 diabetes and E11 is type 2.
-   * The score was right and the code shown was one the user never chose.
-   *
-   * Sending the code is also the safer input: motor.mjs treats an exact code as
-   * unambiguous, while an ambiguous NAME deliberately adds nothing and asks — the
-   * clinical-safety fix of 2026-08-26. So this narrows what the engine has to guess.
-   */
-  const elegido = (li) => li.dataset.codigo || li.dataset.nombre;
-
-  function mover(paso) {
-    const items = [...sugerencias.querySelectorAll('li')];
-    if (!items.length) return;
-    marcada = (marcada + paso + items.length) % items.length;
-    items.forEach((li, i) => li.setAttribute('aria-selected', String(i === marcada)));
-    /* Without this a screen reader hears nothing as the arrows move. */
-    input.setAttribute('aria-activedescendant', items[marcada].id);
-    items[marcada].scrollIntoView({ block: 'nearest' });
-  }
-
-  /* ---------- state ---------- */
+  /* ---------- adding and removing ---------- */
   function agregar(texto) {
-    for (const parte of partirEntrada(texto)) {
-      entradas.push(parte);
-    }
-    input.value = '';
-    sugerencias.innerHTML = '';
-    marcada = -1;
-    input.setAttribute('aria-expanded', 'false');
+    /* planAgregar: parts before an ambiguous one are added; the ambiguous one waits. */
+    const { inmediatas, pendiente } = planAgregar(texto, interpretar);
+    entradas.push(...inmediatas);
+    inp.value = pendiente ?? '';
+    cerrarSug();
+    if (pendiente) mostrarAmbiguo(pendiente); else amb.hidden = true;
+    pintar();
+  }
+  function agregarUna(valor) {
+    entradas.push(valor);
+    inp.value = '';
+    amb.hidden = true;
+    cerrarSug();
+    pintar();
+  }
+  /* An ambiguous name never picks for the clinician: the options become buttons. */
+  function mostrarAmbiguo(parte) {
+    const ops = interpretar(parte).opciones;
+    amb.innerHTML = `«${esc(parte)}» coincide con ${ops.length} patologías. Elija cuál corresponde:
+      <div class="amb__ops">${ops.map((o) => `<button type="button" class="chip" data-nombre="${esc(o.nombre)}">${esc(o.nombre)} <small>${plural(o.puntaje, 'pt')}</small></button>`).join('')}</div>`;
+    amb.hidden = false;
+  }
+  /* Toggle a condition from a quick-add button or the code browser's +. */
+  function alternar(n) {
+    const r = evaluar(entradas);
+    const quitar = r.items.map((it, i) => (it.condicion === n ? i : -1)).filter((i) => i >= 0);
+    if (quitar.length) for (const i of quitar.reverse()) entradas.splice(i, 1);
+    else entradas.push(NOMBRE[n].nombre);
     pintar();
   }
 
-  /*
-   * The bare-Enter path. It used to send raw text to resolver(), which returns
-   * the first match: typing "renal" scored 1 point (ERC) even though the
-   * dropdown was also offering ERC avanzada at 2. At the G1/G2 boundary that
-   * changes the group. Now an ambiguous name adds nothing: the list stays open
-   * and the reason is stated.
-   */
-  function agregarConCuidado(texto) {
-    /* org L6-10: the plan, not a loop that returns mid-flight. Parts confirmed before
-     * an ambiguous one ARE added; the ambiguous one alone waits in the input. */
-    const { inmediatas, pendiente } = planAgregar(texto, interpretar);
-    if (inmediatas.length) agregar(inmediatas.join(','));
-    if (pendiente !== null) {
-      input.value = pendiente;
-      sugerir();
-      avisoAmbiguo(pendiente);
-      return;
-    }
-    limpiarAviso();
-  }
-
-  function avisoAmbiguo(parte) {
-    const n = interpretar(parte).opciones.length;
-    aviso.textContent = `«${parte}» coincide con ${n} patologías. Elija cuál corresponde.`;
-    aviso.hidden = false;
-  }
-  function cerrarSugerencias() {
-    sugerencias.innerHTML = '';
+  /* ---------- suggestions while typing ---------- */
+  function sugerir() {
+    const t = inp.value.split(',').pop().trim();
+    if (!t) { cerrarSug(); return; }
+    const h = buscar(t).slice(0, 8);
     marcada = -1;
-    input.setAttribute('aria-expanded', 'false');
-    input.removeAttribute('aria-activedescendant');
+    /* coincide (the code that matched) is what gets added, so E11 stays E11 and is not
+       re-resolved by name into the condition's first code. */
+    sug.innerHTML = h.map((c, i) => `<li role="option" id="op-${i}" data-v="${esc(c.coincide || c.nombre)}" aria-selected="false">
+      <span>${esc(c.nombre)}${c.coincide ? `<em>${esc(c.coincide)}</em>` : ''}</span><span class="pj">${plural(c.puntaje, 'pt')}</span></li>`).join('');
+    sug.hidden = !h.length;
+    inp.setAttribute('aria-expanded', String(h.length > 0));
   }
-
-  function limpiarAviso() {
-    aviso.hidden = true;
-    aviso.textContent = '';
-    aviso.className = 'calc__aviso alert alert--warn';
+  function cerrarSug() {
+    sug.hidden = true; sug.innerHTML = ''; marcada = -1;
+    inp.setAttribute('aria-expanded', 'false'); inp.removeAttribute('aria-activedescendant');
   }
-
-  function quitar(indice) { entradas.splice(indice, 1); pintar(); }
-
-  /* ---------- render ---------- */
-  function pintar() {
-    const r = evaluar(entradas);
-
-    /* One record, not two. It used to be chips *and* a sum table, which stated the
-       same three facts twice: what it is, its code, what it is worth. */
-    filas.innerHTML = r.items.map((item, i) => {
-      const clase = item.estado === 'ok' ? '' : ` pat__r--${item.estado}`;
-      const nombre = item.estado === 'desconocida'
-        ? `${esc(item.entrada)} · no está en el listado ECICEP oficial`
-        : esc(item.patologia);
-      const ficha = CODIGOS.get(item.condicion);
-      /* An exact code the user chose always wins over the condition's range: it is
-         more specific and it is what they typed. */
-      const codigo = item.estado === 'desconocida'
-        ? '—'
-        : esc(item.codigo ?? ficha?.corto ?? '—');
-      const codigoTitulo = item.codigo || !ficha ? '' : ` title="${esc(ficha.todos)}"`;
-      const pje = item.estado === 'ok' ? item.puntaje : (item.estado === 'repetida' ? 'repetida' : '—');
-      return `<div class="pat__r${clase}" role="listitem">
-        <span class="pat__n">${nombre}</span>
-        <span class="pat__c"${codigoTitulo}>${codigo}</span>
-        <span class="pat__p">${pje}</span>
-        <button type="button" class="pat__x" data-quitar="${i}"
-                aria-label="Quitar ${esc(item.patologia ?? item.entrada)}"><span class="pat__x-g" aria-hidden="true">×</span></button>
-      </div>`;
-    }).join('');
-
-    total.innerHTML = `<span class="pat__n">Total</span>
-      <span class="pat__c">${r.distintas} patología${r.distintas === 1 ? '' : 's'} distinta${r.distintas === 1 ? '' : 's'}</span>
-      <span class="pat__p">${r.puntaje}</span><span></span>`;
-    lista.hidden = r.items.length === 0;
-
-    vacio.hidden = entradas.length > 0;
-    /* A control that does nothing when pressed is worse than an absent one: it
-       spends a tap and teaches the user the page is unresponsive. */
-    if (btnLimpiar) btnLimpiar.hidden = entradas.length === 0;
-
-    const sinCalcular = r.items.length === 0;
-    const RANGO = { G0: 0, G1: 1, G2: 2, G3: 3 };
-
-    /* Three states, not two. solid = you are here · tint = still applies to you ·
-       outline = not reached. ECICEP's strategies are nested: G0's population-wide
-       prevention still applies to a G3 patient, so ghosting the lower tiers would
-       assert something clinically false. */
-    for (const nodo of raiz.querySelectorAll('[data-nivel]')) {
-      const g = nodo.dataset.nivel;
-      const est = sinCalcular ? 'contorno'
-        : g === r.grupo ? 'solido'
-        : RANGO[g] < RANGO[r.grupo] ? 'tinte' : 'contorno';
-      nodo.classList.remove('is-activo', 'is-tinte');
-      if (est === 'solido') nodo.classList.add('is-activo');
-      else if (est === 'tinte') nodo.classList.add('is-tinte');
-      /* «este resultado» rides with the highlight: colour is never the only cue. */
-      const etq = nodo.querySelector('[data-etiqueta]');
-      if (etq) {
-        const base = etq.dataset.base ?? (etq.dataset.base = etq.textContent.trim());
-        etq.textContent = est === 'solido' ? `${base} · este resultado` : base;
-      }
-    }
-    piramide?.querySelector('title')?.replaceChildren(document.createTextNode(
-      sinCalcular ? 'Estratificación ECICEP: sin calcular'
-            : `Estratificación ECICEP: ${r.grupo}, riesgo ${r.etiqueta.toLowerCase()}, ${r.puntaje} puntos`));
-
-    if (sinCalcular) {
-      resultado.classList.add('res--vacio');
-      resultado.innerHTML =
-        '<p class="res__sig">Sin calcular. Agregue una patología confirmada.</p>';
-    } else {
-      resultado.classList.remove('res--vacio');
-      /* Group and what it means, nothing else. The score and the band used to be
-         repeated here; the total row and the pyramid legend already state both, and
-         three places saying the same number is noise, not emphasis. */
-      resultado.innerHTML = `
-        <p class="res__g"><span class="res__sw res__sw--${r.grupo}" aria-hidden="true"></span>Grupo <b>${r.grupo}</b></p>
-        <p class="res__est">${esc(ESTRATEGIAS[r.grupo])}</p>`;
-    }
-    resultado.setAttribute('aria-busy', 'false');
-    /* The phone bar repeats the answer for sight only (aria-hidden): the status card is
-       what a screen reader hears, and hearing it twice is noise. */
-    if (barra) {
-      barra.hidden = sinCalcular;
-      barra.querySelector('.calc__barra-p').textContent = `${r.puntaje} punto${r.puntaje === 1 ? '' : 's'} · riesgo ${r.etiqueta.toLowerCase()}`;
-      const g = barra.querySelector('.calc__barra-g');
-      g.textContent = r.grupo;
-      g.className = `calc__barra-g calc__barra-g--${r.grupo}`;
-    }
-
-    if (depurar) {
-      traza.hidden = false;
-      traza.innerHTML = `<h3>Traza de resolución</h3>
-        <div class="aps-calc__tabla"><table>
-        <thead><tr><th>escrito</th><th>código</th><th>condición</th><th>patología</th><th>pje</th><th>estado</th></tr></thead>
-        <tbody>${r.items.map((i) => `<tr>
-          <td>${esc(i.entrada)}</td><td>${esc(i.codigo ?? '—')}</td><td>${i.condicion ?? '—'}</td>
-          <td>${esc(i.patologia ?? '—')}</td><td>${i.puntaje ?? '—'}</td><td>${i.estado}</td></tr>`).join('')}
-        </tbody></table></div>
-        <p>${esc(META.fuente)} · ${CODIGOS.size} patologías</p>`;
-    }
+  function mover(paso) {
+    const items = [...sug.children];
+    if (!items.length) return;
+    marcada = (marcada + paso + items.length) % items.length;
+    items.forEach((li, i) => li.setAttribute('aria-selected', String(i === marcada)));
+    inp.setAttribute('aria-activedescendant', items[marcada].id);
+    items[marcada].scrollIntoView({ block: 'nearest' });
   }
-
-
-  /* ---------- events ---------- */
-  input.addEventListener('input', sugerir);
-  /* Opens on click and on typing, but NOT on programmatic focus: returning focus
-     after adding from the listing used to dump all 52 options over the page and
-     cover the controls below the field. ArrowDown opens it from the keyboard. */
-  input.addEventListener('click', sugerir);
-  input.addEventListener('keydown', (e) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault();
-      if (!sugerencias.children.length) sugerir();
-      mover(1);
-    }
+  inp.addEventListener('input', sugerir);
+  inp.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowDown') { e.preventDefault(); if (!sug.children.length) sugerir(); mover(1); }
     else if (e.key === 'ArrowUp') { e.preventDefault(); mover(-1); }
-    else if (e.key === 'Escape' || e.key === 'Tab') {
-      /* Tab dismisses the list. Without this, focus lands on the listbox — a
-         scrollable region, which Chrome makes focusable — and the user is on a
-         list they cannot act on. */
-      cerrarSugerencias();
-    }
+    else if (e.key === 'Escape' || e.key === 'Tab') cerrarSug();
     else if (e.key === 'Enter') {
       e.preventDefault();
-      const items = [...sugerencias.querySelectorAll('li')];
-      if (marcada >= 0 && items[marcada]) { limpiarAviso(); agregar(elegido(items[marcada])); }
-      else if (input.value.trim()) agregarConCuidado(input.value);
+      const items = [...sug.children];
+      if (marcada >= 0 && items[marcada]) agregarUna(items[marcada].dataset.v);
+      else if (inp.value.trim()) agregar(inp.value);
     }
   });
+  sug.addEventListener('click', (e) => { const li = e.target.closest('li[data-v]'); if (li) { agregarUna(li.dataset.v); inp.focus(); } });
+  $('#agregar', app).addEventListener('click', () => { if (inp.value.trim()) agregar(inp.value); inp.focus(); });
+  amb.addEventListener('click', (e) => { const b = e.target.closest('[data-nombre]'); if (b) agregarUna(b.dataset.nombre); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.campo')) cerrarSug(); });
 
-  sugerencias.addEventListener('click', (e) => {
-    const li = e.target.closest('li[data-nombre]');
-    if (li) { limpiarAviso(); agregar(elegido(li)); input.focus(); }
-  });
+  /* ---------- painting ---------- */
+  function pintar() {
+    const r = evaluar(entradas);
+    const vacio = r.items.length === 0;
+    const activos = new Set(r.items.filter((i) => i.estado === 'ok').map((i) => i.condicion));
 
-  lista.addEventListener('click', (e) => {
-    const b = e.target.closest('button[data-quitar]');
-    if (b) { quitar(Number(b.dataset.quitar)); input.focus(); }
-  });
+    $('#filas', app).innerHTML = vacio
+      ? '<div class="vacio"><div><b>Agregue las condiciones de la persona</b>Escriba un diagnóstico confirmado o su código, o toque una frecuente.</div></div>'
+      : r.items.map((it, i) => {
+        const nombre = it.estado === 'desconocida' ? `${esc(it.entrada)} · no está en el listado ECICEP oficial` : esc(it.patologia);
+        /* An exact code the user chose wins; a condition chosen by name shows the codes
+           that resolve to it (codigosQueResuelven), never one that scores elsewhere. */
+        const ficha = CODIGOS.get(it.condicion);
+        const cod = it.estado === 'desconocida' ? '—' : esc(it.codigo ?? ficha?.corto ?? '—');
+        const titulo = it.codigo || !ficha ? '' : ` title="${esc(ficha.todos)}"`;
+        const p = it.estado === 'ok' ? it.puntaje : it.estado === 'repetida' ? 'repetida' : '—';
+        return `<div class="fila fila--${it.estado}" role="listitem"><span class="fila__n">${nombre}</span><span class="fila__c"${titulo}>${cod}</span>
+          <span class="fila__p">${p}</span><button type="button" class="x" data-q="${i}" aria-label="Quitar ${esc(it.patologia ?? it.entrada)}">×</button></div>`;
+      }).join('');
+    $('#lista', app).classList.toggle('lista--vacia', vacio);
+    const tot = $('#total', app);
+    tot.hidden = vacio;
+    tot.innerHTML = `<span>Total</span><span>${plural(r.distintas, 'patología distinta', 'patologías distintas')}</span><span>${r.puntaje}</span><span></span>`;
+    $('#limpiar', app).hidden = vacio;
 
-  /* Clearing wipes a patient's whole entry and the array is only in memory, so
-     an undo is cheaper than a confirm dialog and strictly better: confirms get
+    $('#chips', app).innerHTML = FRECUENTES.map(([n, etq]) => `<button type="button" class="chip" data-n="${n}" aria-pressed="${activos.has(n)}">${activos.has(n) ? '✓ ' : ''}${esc(etq)} <small>${NOMBRE[n].puntaje}</small></button>`).join('');
+
+    $('#grupo', app).innerHTML = vacio
+      ? '<span class="grupo__g grupo__g--vacio">—</span><div><p class="grupo__e">Sin calcular</p><p class="grupo__p">Agregue una patología confirmada.</p></div>'
+      : `<span class="grupo__g grupo__g--${r.grupo}">${r.grupo}</span><div><p class="grupo__e">Riesgo ${r.etiqueta.toLowerCase()}</p><p class="grupo__p">${plural(r.puntaje, 'punto ponderado', 'puntos ponderados')} · ${plural(r.distintas, 'patología')}</p></div>`;
+    $('#est', app).innerHTML = vacio ? '' : `<p class="est__t">Estrategia principal</p><p>${esc(ESTRATEGIAS[r.grupo])}</p>`;
+    /* solid = this group · tint = below it, still applies (strategies are nested) · faint = not reached */
+    for (const el of app.querySelectorAll('.pir [data-n], .ley [data-n]')) {
+      const n = el.dataset.n;
+      el.classList.toggle('activo', !vacio && n === r.grupo);
+      el.classList.toggle('tinte', !vacio && RANGO[n] < RANGO[r.grupo]);
+    }
+    $('#pir-t', app).textContent = vacio ? 'Estratificación ECICEP: sin calcular'
+      : `Estratificación ECICEP: ${r.grupo}, riesgo ${r.etiqueta.toLowerCase()}, ${plural(r.puntaje, 'punto')}`;
+
+    $('#franja', app).innerHTML = vacio
+      ? '<span class="franja__g franja__g--vacio">—</span><span class="franja__t"><b>Sin calcular</b>Agregue una patología</span>'
+      : `<span class="franja__g franja__g--${r.grupo}">${r.grupo}</span><span class="franja__t"><b>Riesgo ${r.etiqueta.toLowerCase()}</b>${plural(r.puntaje, 'punto')} · ${plural(r.distintas, 'patología')}</span><span class="franja__v">${app.dataset.vista === 'resultado' ? '‹ Volver' : 'Ver estrategia ›'}</span>`;
+    const tn = $('#tabn', app);
+    tn.hidden = vacio;
+    tn.textContent = r.distintas;
+    pintarCodigos(activos);
+  }
+  $('#chips', app).addEventListener('click', (e) => { const b = e.target.closest('[data-n]'); if (b) alternar(Number(b.dataset.n)); });
+  $('#filas', app).addEventListener('click', (e) => { const b = e.target.closest('[data-q]'); if (b) { entradas.splice(Number(b.dataset.q), 1); pintar(); } });
+
+  /* Clearing a patient's whole entry: an undo beats a confirm dialog, which gets
      click-through-trained within a week. */
   let deshacer = null;
-  btnLimpiar?.addEventListener('click', () => {
+  $('#limpiar', app).addEventListener('click', () => {
     if (!entradas.length) return;
     const copia = [...entradas];
     entradas.length = 0;
     pintar();
-    aviso.className = 'calc__aviso alert alert--info';
-    aviso.innerHTML = `Se quitaron ${copia.length} patología${copia.length === 1 ? '' : 's'}. `
-      + '<button type="button" class="aps-calc__deshacer">Deshacer</button>';
-    aviso.hidden = false;
+    const t = $('#toast', app);
+    t.innerHTML = `Se quitaron ${plural(copia.length, 'patología')}. <button type="button">Deshacer</button>`;
+    t.hidden = false;
     clearTimeout(deshacer);
-    deshacer = setTimeout(limpiarAviso, 10000);
-    aviso.querySelector('.aps-calc__deshacer').addEventListener('click', () => {
-      entradas.push(...copia);
-      limpiarAviso();
-      pintar();
-      input.focus();
-    });
+    deshacer = setTimeout(() => { t.hidden = true; }, 10000);
+    t.querySelector('button').addEventListener('click', () => { entradas.push(...copia); t.hidden = true; pintar(); inp.focus(); });
   });
 
-  /* The panels are native <dialog>: the browser already supplies the backdrop,
-     the focus trap and Escape. Hand-rolling it would be more code and worse
-     accessibility. */
-  for (const boton of raiz.querySelectorAll('[data-abre]')) {
-    boton.addEventListener('click', () => {
-      const dlg = raiz.querySelector(`#${boton.dataset.abre}`);
-      if (!dlg) return;
-      if (boton.dataset.abre === 'dlg-listado') { if (filtro) filtro.value = ''; pintarListado(); }
-      dlg.showModal();
-    });
-  }
-  for (const dlg of raiz.querySelectorAll('dialog')) {
-    // Clicking the backdrop closes, which is what people expect of an overlay.
-    dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
-  }
-
-  document.addEventListener('click', (e) => {
-    if (!raiz.contains(e.target)) cerrarSugerencias();
-  });
-
-  /* ---------- reference listing: every CIE-10 code, with its title ---------- */
-  const FILAS = codigosPorCondicion();
-  const cuerpoListado = $('.aps-calc__listado tbody', raiz);
-  const filtro = $('.aps-calc__filtro', raiz);
-  const conteo = $('.aps-calc__conteo', raiz);
-
-  function pintarListado() {
-    const crudo = filtro?.value ?? '';
-    const visibles = filtrarListado(FILAS, crudo);
-    /* The listing used to be a dead end: you looked a name up here, closed the
-       panel and retyped it — into the field where an ambiguous name is exactly
-       the hazard this listing helps avoid. Now the row adds it. */
-    cuerpoListado.innerHTML = visibles.map(({ fila: f, aciertos, porNombre }) => {
+  /* ---------- code browser ---------- */
+  function pintarCodigos(activos) {
+    const vis = filtrarListado(FILAS, $('#filtro', app).value);
+    $('#codl', app).innerHTML = vis.map(({ fila: f, aciertos, porNombre }) => {
       const abierto = aciertos.size > 0 && !porNombre;
-      const cods = f.todos.map((c) => `<div class="lst__cod${c.maestro ? ' lst__cod--m' : ''}${aciertos.has(c.codigo) ? ' lst__cod--hit' : ''}">
-          <b>${esc(c.codigo)}</b><span>${esc(c.titulo || '—')}${c.otra ? `<small>Este código cuenta como «${esc(c.otra)}»</small>` : ''}</span></div>`).join('');
-      return `<tr>
-      <td>${f.n}</td>
-      <td><button type="button" class="aps-calc__anadir" data-nombre="${esc(f.nombre)}">${esc(f.nombre)}</button></td>
-      <td><b>${f.puntaje}</b></td>
-      <td class="aps-calc__codigos">${esc(rangos(f.visibles))}
-        <details class="lst__mas"${abierto ? ' open' : ''}><summary>Ver ${f.todos.length} código${f.todos.length === 1 ? '' : 's'} CIE-10${aciertos.size && !porNombre ? ` · ${aciertos.size} coincide${aciertos.size === 1 ? '' : 'n'}` : ''}</summary>
-          <div class="lst__cods">${cods}</div></details></td>
-    </tr>`;
-    }).join('');
-    conteo.textContent = visibles.length === FILAS.length
-      ? `${FILAS.length} patologías · ${META.codigos} códigos`
-      : `${visibles.length} de ${FILAS.length} patologías`;
+      const esta = activos.has(f.n);
+      return `<div class="cf"><div class="cf__r">
+        <div><div class="cf__n">${esc(f.nombre)}</div><div class="cf__c">${esc(rangos(f.visibles))}</div></div>
+        <span class="cf__p">${plural(f.puntaje, 'pt')}</span>
+        <button type="button" class="mas" data-n="${f.n}" aria-pressed="${esta}" aria-label="${esta ? 'Quitar' : 'Agregar'} ${esc(f.nombre)}">${esta ? '✓' : '+'}</button></div>
+        <details${abierto ? ' open' : ''}><summary>Ver ${plural(f.todos.length, 'código')}${abierto ? ` · ${aciertos.size} coincide${aciertos.size === 1 ? '' : 'n'}` : ''}</summary>
+        <div class="cods">${f.todos.map((c) => `<div class="${c.maestro ? 'm' : ''}${aciertos.has(c.codigo) ? ' hit' : ''}"><b>${esc(c.codigo)}</b><span>${esc(c.titulo || '—')}${c.otra ? `<small>Este código cuenta como «${esc(c.otra)}»</small>` : ''}</span></div>`).join('')}</div></details></div>`;
+    }).join('') || '<p class="vacio">Nada coincide con la búsqueda.</p>';
+    $('#conteo', app).textContent = vis.length === FILAS.length
+      ? `${FILAS.length} patologías · ${META.codigos} códigos · toque + para agregar`
+      : `${vis.length} de ${FILAS.length} patologías`;
   }
-  filtro?.addEventListener('input', pintarListado);
-  cuerpoListado?.addEventListener('click', (e) => {
-    const b = e.target.closest('.aps-calc__anadir');
-    if (!b) return;
-    limpiarAviso();
-    agregar(b.dataset.nombre);
-    raiz.querySelector('#dlg-listado')?.close();
-    input.focus();
-  });
+  $('#filtro', app).addEventListener('input', () => pintar());
+  $('#codl', app).addEventListener('click', (e) => { const b = e.target.closest('.mas'); if (b) alternar(Number(b.dataset.n)); });
+
+  /* ---------- views: phone tabs, the mid-width panel, help ---------- */
+  function vista(v) {
+    app.dataset.vista = v;
+    for (const t of app.querySelectorAll('.tab')) t.setAttribute('aria-current', String(t.dataset.vista === v));
+    $('.main', app).scrollTop = 0;
+    const flecha = $('.franja__v', app);
+    if (flecha) flecha.textContent = v === 'resultado' ? '‹ Volver' : 'Ver estrategia ›';
+  }
+  $('.tabs', app).addEventListener('click', (e) => { const t = e.target.closest('.tab'); if (t) vista(t.dataset.vista); });
+  $('#franja', app).addEventListener('click', () => vista(app.dataset.vista === 'resultado' ? 'calcular' : 'resultado'));
+  const ayuda = document.getElementById('tpl-ayuda').innerHTML;
+  document.getElementById('dayuda').innerHTML = ayuda;
+  $('#vayuda', app).innerHTML = `<h2 class="vista-ayuda__h">Cómo se usa</h2>${ayuda}`;
+  $('#abrir-ayuda', app).addEventListener('click', () => document.getElementById('dlg-ayuda').showModal());
+  $('#abrir-cod', app).addEventListener('click', () => { app.classList.add('cod-abierto'); $('#filtro', app).focus(); });
+  $('#cerrar-cod', app).addEventListener('click', () => app.classList.remove('cod-abierto'));
+  const dlg = document.getElementById('dlg-ayuda');
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
 
   pintar();
-  return { agregar, quitar, pintar, pintarListado, get entradas() { return [...entradas]; } };
+  return { agregar, alternar, pintar, get entradas() { return [...entradas]; } };
 }
 
 /* Auto-start — in the BROWSER only. Under node (tests/ui.test.mjs pins this
  * module's pure contract) there is no document, and the import must not explode
  * before the first test runs. If anything fails it is said on screen — never a
  * silent catch. */
-if (typeof document !== 'undefined') for (const raiz of document.querySelectorAll('[data-aps-calc]')) {
+if (typeof document !== 'undefined') {
+  const app = document.getElementById('app');
   try {
-    iniciar(raiz);
+    iniciar(app);
   } catch (error) {
-    raiz.innerHTML = `<p class="alert alert--warn">La calculadora no pudo iniciarse: ${esc(error.message)}</p>`;
+    if (app) app.innerHTML = `<p class="amb" style="margin:16px">La calculadora no pudo iniciarse: ${esc(error.message)}</p>`;
     throw error;
   }
 }
@@ -580,8 +427,8 @@ if (typeof document !== 'undefined') {
   const marcar = () => {
     if (!red) return;
     const fuera = navigator.onLine === false;
-    red.classList.toggle('is-on', fuera);
-    red.textContent = fuera ? 'Sin conexión: funciona igual, con la versión guardada en este equipo.' : '';
+    red.hidden = !fuera;
+    red.textContent = fuera ? 'Sin conexión · funciona igual' : '';
   };
   addEventListener('online', marcar);
   addEventListener('offline', marcar);
