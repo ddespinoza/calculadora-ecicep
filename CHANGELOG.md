@@ -8,6 +8,13 @@ the Site's vendored copy.
 
 Format: [Keep a Changelog 1.1.0](https://keepachangelog.com/en/1.1.0/).
 
+## v1.1.1 — light theme only — 2026-11-24
+
+### Changed
+- The Calculator always uses its official light theme. v1.1.0 switched to a dark palette when the
+  device was set to dark mode; that palette is gone, and `color-scheme: light` keeps native
+  controls consistent. No score, code or condition changed.
+
 ## v1.1.0 — the Calculator moves here and goes live on GitHub Pages — 2026-11-24
 
 The Site's calculator page no longer existed, so the interface it served was ported into `site/` and
